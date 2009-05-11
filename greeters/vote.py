@@ -1,7 +1,9 @@
-from twisted.internet import reactor
+from twisted.internet import reactor, task
 from twisted.words.protocols.jabber import error
 from wokkel.pubsub import PubSubClient
 from wokkel.client import XMPPClient
+from wokkel.disco import DiscoClientProtocol
+from twisted.words.protocols.jabber.xmlstream import IQ
 
 class PubSubClientFromController(PubSubClient):
 
@@ -32,7 +34,32 @@ class PubSubClientFromController(PubSubClient):
             self.controller.gotVote(vote)
 
 
+
+class Pinger(DiscoClientProtocol):
+
+    def __init__(self, domain):
+        self.domain = domain
+        self.lc = task.LoopingCall(self.ping)
+
+
+    def connectionInitialized(self):
+        self.lc.start(60)
+
+
+    def connectionLost(self, reason):
+        self.lc.stop()
+
+
+    def ping(self):
+        d = self.requestInfo(self.domain)
+        d.addBoth(lambda _: None)
+        return d
+
+
 def makeService(config):
+    if IQ.timeout is None:
+        IQ.timeout = 30
+
     xmppService = XMPPClient(config['jid'], config['secret'])
     if config['verbose']:
         xmppService.logTraffic = True
@@ -42,5 +69,8 @@ def makeService(config):
                                     config['service'],
                                     config['nodeIdentifiers'])
     pc.setHandlerParent(xmppService)
+
+    pinger = Pinger(config['service'])
+    pinger.setHandlerParent(xmppService)
 
     return xmppService
