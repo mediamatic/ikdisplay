@@ -51,6 +51,7 @@ class Pinger(DiscoClientProtocol):
 
 
     def ping(self):
+        print "*** PING ***"
         d = self.requestInfo(self.domain)
         d.addBoth(lambda _: None)
         return d
