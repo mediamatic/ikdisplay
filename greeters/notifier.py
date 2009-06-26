@@ -35,6 +35,10 @@ class NotifierParentPage(LivePage):
         self.jsModules.mapping[u'jQuery'] = jsPath.child('jquery.min.js').path
         self.docFactory = xmlfile(self.pagePath.path)
 
+        if hasattr(controller, 'history'):
+            for notification in controller.history:
+                self.queue.put(notification)
+
 
     def beforeRender(self, ctx):
         d = self.notifyOnDisconnect()
