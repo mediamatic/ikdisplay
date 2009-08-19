@@ -77,10 +77,10 @@ class NotifierParentPage(LivePage):
         d.addCallback(lambda _: self.showNotification())
 
 
-def makeService(config):
+def makeService(config, controller):
     rootDir = config['root']
 
-    root = NotifierParentPage(config['controller'],
+    root = NotifierParentPage(controller,
                               config['js'], rootDir.child(config['page']))
     root.child_static = File(rootDir.child('static').path)
 

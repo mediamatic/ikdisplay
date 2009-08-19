@@ -57,7 +57,7 @@ class Pinger(DiscoClientProtocol):
         return d
 
 
-def makeService(config):
+def makeService(config, controller):
     if IQ.timeout is None:
         IQ.timeout = 30
 
@@ -66,7 +66,7 @@ def makeService(config):
         xmppService.logTraffic = True
     xmppService.send('<presence><priority>-1</priority></presence>')
 
-    pc = PubSubClientFromController(config['controller'],
+    pc = PubSubClientFromController(controller,
                                     config['service'],
                                     config['nodeIdentifiers'])
     pc.setHandlerParent(xmppService)
