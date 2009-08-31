@@ -11,22 +11,28 @@ from wokkel.xmppim import AvailabilityPresence, MessageProtocol
 
 class PubSubClientFromController(PubSubClient):
 
-    def __init__(self, controller, service, nodeIdentifiers):
+    def __init__(self, controller, nodes):
         self.controller = controller
-        self.service = service
-        self.nodeIdentifiers = nodeIdentifiers
+        self.nodes = nodes
 
     def connectionInitialized(self):
         PubSubClient.connectionInitialized(self)
 
         clientJID = self.parent.factory.authenticator.jid
-        for nodeIdentifier in self.nodeIdentifiers:
-            self.subscribe(self.service, nodeIdentifier, clientJID)
+        for service, nodeIdentifier in self.nodes:
+            self.subscribe(service, nodeIdentifier, clientJID)
 
 
     def itemsReceived(self, event):
-        if event.nodeIdentifier in self.nodeIdentifiers:
-            self.controller.gotEvent(event)
+        try:
+            nodeInfo = self.nodes[event.sender, event.nodeIdentifier]
+        except KeyError:
+            log.msg("Got event from %r, node %r. Unsubscribing." % (
+                event.sender, event.nodeIdentifier))
+            self.unsubscribe(event.sender, event.nodeIdentifier,
+                             event.recipient)
+        else:
+            self.controller.gotEvent(event, nodeInfo)
 
 
 class GroupChatHandler(MessageProtocol):
@@ -101,8 +107,7 @@ def makeService(config, controller):
     xmppService.send('<presence><priority>-1</priority></presence>')
 
     pc = PubSubClientFromController(controller,
-                                    config['service'],
-                                    config['nodeIdentifiers'])
+                                    config['nodes'])
     pc.setHandlerParent(xmppService)
 
     pinger = Pinger(config['service'])
