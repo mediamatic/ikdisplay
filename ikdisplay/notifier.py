@@ -32,9 +32,9 @@ class NotifierParentPage(LivePage):
         self.element = None
         self.queue = defer.DeferredQueue()
         self.jsModules.mapping[u'Notifier'] = jsPath.child('notifier.js').path
-        self.jsModules.mapping[u'jQuery'] = jsPath.child('jquery.js').path
-        self.jsModules.mapping[u'jQueryUI'] = jsPath.child('jquery-ui.js').path
-        self.jsModules.mapping[u'backchannel'] = jsPath.child('backchannel.js').path
+        self.jsModules.mapping[u'JQuery'] = jsPath.child('jquery.js').path
+        self.jsModules.mapping[u'JQueryUI'] = jsPath.child('jquery-ui.js').path
+        self.jsModules.mapping[u'BackChannel'] = jsPath.child('backchannel.js').path
         self.docFactory = xmlfile(self.pagePath.path)
 
         if hasattr(controller, 'history'):

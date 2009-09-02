@@ -24,14 +24,15 @@ backChannel =
 	
 	cloneMessage: function(message, callback)
 	{
-		$('.clone-item')
-				.clone()
+        var clonedItem = $('.clone-item').clone().show().css({opacity: 0}).appendTo($('.tmp')).removeClass('clone-item');
+        backChannel.fillClone(clonedItem, message);
+        clonedItemHeight = clonedItem.height();
+        clonedItem  
 				.removeClass('clone-item')
 				.addClass('item')
-				.css({opacity: 0})
-				.animate({height: 'show'}, 600, 'easeOutExpo', function() 
+				.css({opacity: 0, height: 0})
+				.animate({height: clonedItemHeight}, 600, function() 
 				{
-					backChannel.fillClone($(this), message);
 					$(this).animate({opacity: 1}, 300, callback);
 				})
 				.prependTo($(backChannel.options.itemList));
