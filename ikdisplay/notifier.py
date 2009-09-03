@@ -1,10 +1,12 @@
-from twisted.application import strports
+from twisted.application import service, strports
 from twisted.internet import defer, reactor
 
 from nevow.appserver import NevowSite
 from nevow.athena import LivePage, LiveElement
 from nevow.loaders import xmlfile
 from nevow.static import File
+
+from ikdisplay import gui
 
 class NotifierElement(LiveElement):
     """
@@ -32,14 +34,17 @@ class NotifierParentPage(LivePage):
         self.element = None
         self.queue = defer.DeferredQueue()
         self.jsModules.mapping[u'Notifier'] = jsPath.child('notifier.js').path
-        self.jsModules.mapping[u'JQuery'] = jsPath.child('jquery.js').path
-        self.jsModules.mapping[u'JQueryUI'] = jsPath.child('jquery-ui.js').path
+        self.jsModules.mapping[u'JQuery'] = jsPath.child('jquery.combined.min.js').path
         self.jsModules.mapping[u'BackChannel'] = jsPath.child('backchannel.js').path
         self.docFactory = xmlfile(self.pagePath.path)
 
-        if hasattr(controller, 'history'):
-            for notification in controller.history:
-                self.queue.put(notification)
+        if hasattr(controller, 'getHistory'):
+            def cb(notifications):
+                for notification in notifications:
+                    self.queue.put(notification)
+
+            d = controller.getHistory(maxItems=5)
+            d.addCallback(cb)
 
 
     def beforeRender(self, ctx):
@@ -79,7 +84,43 @@ class NotifierParentPage(LivePage):
         d.addCallback(lambda _: self.showNotification())
 
 
-def makeService(config, controller):
+
+class NotifierController(object):
+    """
+    Base class for page controllers.
+
+    This keeps the set of listening pages to send notifications to.
+    """
+
+    producer = None
+
+    def __init__(self):
+        self.pages = set()
+
+
+    def notify(self, notification):
+        """
+        Send notification to all listening pages.
+        """
+
+        for page in self.pages:
+            page.gotNotification(notification)
+
+
+    def getHistory(self, maxItems):
+        print self.producer
+        if self.producer is not None:
+            print "hier"
+            return self.producer.getHistory(maxItems)
+        else:
+            return defer.succeed([])
+
+
+
+def makeService(config, title, controller):
+    s = service.MultiService()
+
+    # Set up web service.
     rootDir = config['root']
 
     root = NotifierParentPage(controller,
@@ -87,6 +128,14 @@ def makeService(config, controller):
     root.child_static = File(rootDir.child('static').path)
 
     site = NevowSite(root)
-    webService = strports.service(config['webport'], site)
 
-    return webService
+    notifierService = strports.service(config['webport'], site)
+    notifierService.setName('notifier')
+    notifierService.setServiceParent(s)
+
+    # Set up GUI for accessing the page.
+
+    g = gui.DisplayGUI(title, 'http://localhost:%d/' % int(config['webport']))
+    g.setServiceParent(s)
+
+    return s

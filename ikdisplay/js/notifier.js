@@ -2,7 +2,6 @@
 // import Divmod.Runtime
 // import Divmod.Defer
 // import JQuery
-// import JQueryUI
 // import BackChannel
 
 backChannel.options.itemAmount = 13;
