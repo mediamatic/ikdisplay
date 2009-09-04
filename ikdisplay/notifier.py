@@ -23,6 +23,8 @@ class NotifierParentPage(LivePage):
     A "live" container page for L{NotifierElement}.
     """
 
+    TRANSPORT_IDLE_TIMEOUT = 60
+
     def __init__(self, controller, jsPath, pagePath):
         LivePage.__init__(self)
         self.controller = controller
