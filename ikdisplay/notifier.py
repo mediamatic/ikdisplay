@@ -6,8 +6,6 @@ from nevow.athena import LivePage, LiveElement
 from nevow.loaders import xmlfile
 from nevow.static import File
 
-from ikdisplay import gui
-
 class NotifierElement(LiveElement):
     """
     A "live" notifier.
@@ -135,7 +133,11 @@ def makeService(config, title, controller):
 
     # Set up GUI for accessing the page.
 
-    g = gui.DisplayGUI(title, 'http://localhost:%d/' % int(config['webport']))
-    g.setServiceParent(s)
+    if config['gui']:
+        from ikdisplay import gui
+
+        url = 'http://localhost:%d/' % int(config['webport'])
+        g = gui.DisplayGUI(title, url)
+        g.setServiceParent(s)
 
     return s
