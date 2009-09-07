@@ -90,14 +90,10 @@ class PubSubClientFromAggregator(PubSubClient):
         for key, value in notification.iteritems():
             payload.addElement(key, content=value)
 
-        def cb(result):
-            log.msg("Joepie: %r" % result)
-
         def eb(failure):
             log.err(failure)
 
         d = self.publish(service, nodeIdentifier, [Item(payload=payload)])
-        d.addCallback(cb)
         d.addErrback(eb)
 
 
