@@ -43,7 +43,7 @@ class NotifierParentPage(LivePage):
                 for notification in notifications:
                     self.queue.put(notification)
 
-            d = controller.getHistory(maxItems=5)
+            d = controller.getHistory()
             d.addCallback(cb)
 
 
@@ -107,11 +107,9 @@ class NotifierController(object):
             page.gotNotification(notification)
 
 
-    def getHistory(self, maxItems):
-        print self.producer
+    def getHistory(self):
         if self.producer is not None:
-            print "hier"
-            return self.producer.getHistory(maxItems)
+            return self.producer.getHistory()
         else:
             return defer.succeed([])
 

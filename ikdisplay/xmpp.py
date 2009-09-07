@@ -1,4 +1,4 @@
-from twisted.internet import reactor, task
+from twisted.internet import defer, reactor, task
 from twisted.python import log
 from twisted.words.protocols.jabber import error
 from twisted.words.protocols.jabber.jid import internJID as JID
@@ -100,6 +100,8 @@ class PubSubClientFromAggregator(PubSubClient):
         d.addCallback(cb)
         d.addErrback(eb)
 
+
+
 class GroupChatHandler(MessageProtocol):
 
     def __init__(self, aggregator, occupantJID):
@@ -142,7 +144,8 @@ class Pinger(PingClientProtocol):
 
 
     def connectionLost(self, reason):
-        self.lc.stop()
+        if self.lc.running:
+            self.lc.stop()
 
 
     def doPing(self):
@@ -179,6 +182,8 @@ class PubSubClientFromNotifier(PubSubClient):
     @type nodeIdentifier: L{unicode}.
     """
 
+    maxHistory = 5
+
     def __init__(self, notifier, service, nodeIdentifier):
         PubSubClient.__init__(self)
         self.notifier = notifier
@@ -186,6 +191,10 @@ class PubSubClientFromNotifier(PubSubClient):
         self.nodeIdentifier = nodeIdentifier
 
         self._subscribed = False
+        self._gotHistory = False
+        self._pendingHistory = set()
+        self.history = []
+
 
     def connectionInitialized(self):
         """
@@ -195,14 +204,36 @@ class PubSubClientFromNotifier(PubSubClient):
         """
         PubSubClient.connectionInitialized(self)
 
-        clientJID = self.parent.factory.authenticator.jid
+        clientJID = self.parent.jid
 
+        # Subscribe to the node we want to track
         if not self._subscribed:
             def cb(result):
                 self._subscribed = True
 
             d = self.subscribe(self.service, self.nodeIdentifier, clientJID)
             d.addCallbacks(cb, log.err)
+
+        # Retrieve history from the node
+        if not self._gotHistory:
+            def eb(failure):
+                log.err(failure)
+                return []
+
+            def processHistory(notifications):
+                self._gotHistory = True
+                self.history = list(notifications)
+                pending = self._pendingHistory
+                self._pendingHistory = set()
+                for d in pending:
+                    reactor.callLater(0, d.callback, self.history)
+
+            d = self.items(self.service, self.nodeIdentifier,
+                                         maxItems=self.maxHistory)
+            d.addErrback(eb)
+            d.addCallback(reversed)
+            d.addCallback(self._notificationsFromItems)
+            d.addCallback(processHistory)
 
 
     def _notificationsFromItems(self, items):
@@ -241,18 +272,18 @@ class PubSubClientFromNotifier(PubSubClient):
         else:
             for notification in self._notificationsFromItems(event.items):
                 self.notifier.notify(notification)
+                self.history.append(notification)
+            self.history = self.history[self.maxHistory:]
 
 
-    def getHistory(self, maxItems):
-        def eb(failure):
-            log.err(failure)
-            return []
+    def getHistory(self):
+        if self._gotHistory:
+            return defer.succeed(self.history)
+        else:
+            d = defer.Deferred()
+            self._pendingHistory.add(d)
+            return d
 
-        d = self.items(self.service, self.nodeIdentifier, maxItems=maxItems)
-        d.addErrback(eb)
-        d.addCallback(reversed)
-        d.addCallback(self._notificationsFromItems)
-        return d
 
 
 def makeService(config):
