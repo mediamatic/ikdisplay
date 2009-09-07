@@ -31,7 +31,7 @@ class PubSubClientFromAggregator(PubSubClient):
         """
         PubSubClient.connectionInitialized(self)
 
-        clientJID = self.parent.factory.authenticator.jid
+        clientJID = self.parent.jid
         for service, nodeIdentifier in self.nodes:
             self.subscribe(service, nodeIdentifier, clientJID)
 
@@ -56,10 +56,15 @@ class PubSubClientFromAggregator(PubSubClient):
         try:
             nodeInfo = self.nodes[event.sender, event.nodeIdentifier]
         except KeyError:
-            log.msg("Got event from %r, node %r. Unsubscribing." % (
-                event.sender, event.nodeIdentifier))
-            self.unsubscribe(event.sender, event.nodeIdentifier,
-                             event.recipient)
+            msg = "Got event from %r, node %r." % (event.sender,
+                                                   event.nodeIdentifier)
+            if event.recipient == self.parent.jid:
+                msg += " Unsubscribing."
+                self.unsubscribe(event.sender, event.nodeIdentifier,
+                                 event.recipient)
+            else:
+                msg += " Dropping."
+            log.msg(msg)
         else:
             for item in event.items:
                 try:
