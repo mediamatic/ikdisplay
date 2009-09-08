@@ -77,7 +77,10 @@ class PubSubClientFromAggregator(PubSubClient):
 
                 if method:
                     notification = method(element)
-                    self.aggregator.processNotification(notification)
+                    if notification:
+                        self.aggregator.processNotification(notification)
+                    else:
+                        log.msg("Formatter returned None. Dropping.")
                 else:
                     log.msg("No formatter has been defined for "
                             "%r at %r (%s). Dropping." %
