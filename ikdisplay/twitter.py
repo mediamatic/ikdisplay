@@ -77,7 +77,9 @@ class TwitterMonitor(service.Service):
             self.delay = self.initialDelay
 
         def trapConnectError(failure):
-            failure.trap(error.ConnectError, error.TimeoutError)
+            failure.trap(error.ConnectError,
+                         error.TimeoutError,
+                         error.ConnectionClosed)
             log.err(failure)
             if self.errorState != 'connect':
                 self.errorState = 'connect'
