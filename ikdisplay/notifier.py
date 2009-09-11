@@ -119,11 +119,8 @@ def makeService(config, title, controller):
     s = service.MultiService()
 
     # Set up web service.
-    rootDir = config['root']
-
-    root = NotifierParentPage(controller,
-                              config['js'], rootDir.child(config['page']))
-    root.child_static = File(rootDir.child('static').path)
+    root = NotifierParentPage(controller, config['js'], config['page'])
+    root.child_static = File(config['static'].path)
 
     site = NevowSite(root)
 

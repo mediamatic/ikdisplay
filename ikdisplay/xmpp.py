@@ -14,6 +14,11 @@ NS_NOTIFICATION = 'http://mediamatic.nl/ns/ikdisplay/2009/notification'
 NS_X_DELAY='jabber:x:delay'
 NS_DELAY='urn:xmpp:delay'
 
+ALIEN = u'Een illegale alien'
+VOTED = u'stemde op %s'
+PRESENT = u'is bij de ingang gesignaleerd'
+ALIEN_PRESENT = u'is bij de ingang tegengehouden'
+
 class PubSubClientFromAggregator(PubSubClient):
     """
     Publish-subscribe client that renders to notifications for aggregation.
@@ -73,18 +78,18 @@ class PubSubClientFromAggregator(PubSubClient):
                     continue
 
                 nodeType = nodeInfo['type']
-                method = getattr(self, 'format_' + nodeType)
-
-                if method:
+                try:
+                    method = getattr(self, 'format_' + nodeType)
+                except AttributeError:
+                    log.msg("No formatter has been defined for "
+                            "%r at %r (%s). Dropping." %
+                            (event.nodeIdentifier, event.sender, nodeType))
+                else:
                     notification = method(element)
                     if notification:
                         self.aggregator.processNotification(notification)
                     else:
                         log.msg("Formatter returned None. Dropping.")
-                else:
-                    log.msg("No formatter has been defined for "
-                            "%r at %r (%s). Dropping." %
-                            (event.nodeIdentifier, event.sender, nodeType))
 
 
     def publishNotification(self, service, nodeIdentifier, notification):
@@ -98,6 +103,72 @@ class PubSubClientFromAggregator(PubSubClient):
 
         d = self.publish(service, nodeIdentifier, [Item(payload=payload)])
         d.addErrback(eb)
+
+
+    def _voteToName(self, vote):
+        title = unicode(vote.person.title)
+        if title:
+            prefix = vote.person.prefix and (unicode(vote.person.prefix) + " ") or ""
+            return prefix + title
+        else:
+            return None
+
+
+    def _voteToAnswer(self, vote):
+        answerID = unicode(vote.vote.answer_id_ref)
+        for element in vote.question.answers.elements():
+            if ((element.uri, element.name) == ('', 'item') and
+                unicode(element.answer_id) == answerID):
+                    return unicode(element.title)
+
+        return None
+
+
+    def format_voteSimple(self, vote):
+        title = self._voteToName(vote)
+        answer = self._voteToAnswer(vote)
+
+        if not title:
+            title = ALIEN
+
+        subtitle = VOTED % (answer)
+
+        return {"title": title, "subtitle": subtitle}
+
+
+    def format_votePresence(self, vote):
+        title = self._voteToName(vote)
+
+        if title:
+            subtitle = PRESENT
+        else:
+            title = ALIEN
+            subtitle = ALIEN_PRESENT
+
+
+        return {"title": title, "subtitle": subtitle}
+
+
+    def format_status(self, status):
+        text = unicode(status.status).strip()
+        if not text or text == 'is':
+            return None
+
+        return {'title': unicode(status.person.title),
+                'subtitle': text,
+                'image': unicode(status.person.image)}
+
+
+    def format_atom(self, entry):
+        import feedparser
+        data = feedparser.parse(entry)
+        return {'title': data.entries[0].title}
+
+
+    def format_twitter(self, status):
+        return {'title': unicode(status.user.screen_name),
+                'subtitle': unicode(status.text),
+                }
 
 
 
