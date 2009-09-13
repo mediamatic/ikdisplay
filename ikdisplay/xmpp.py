@@ -1,3 +1,5 @@
+# -*- test-case-name: ikdisplay.test.test_xmpp -*-
+
 from twisted.internet import defer, reactor, task
 from twisted.python import log
 from twisted.words.protocols.jabber import error
@@ -328,13 +330,19 @@ class PubSubClientFromNotifier(PubSubClient):
         """
         Called when items have been received.
 
-        Items are notifications for display.
-
+        Items are notifications for display. Items received for other JIDs
+        (including different resources of the JID we connect with) are dropped.
         If items are received from unknown nodes, the subscription is
         cancelled.
+
+        @param event: The publish-subscribe event containing the items.
+        @type event: L{pubsub.ItemsEvent}.
         """
-        if (event.sender != self.service or
-            event.nodeIdentifier != self.nodeIdentifier):
+        if event.recipient != self.parent.clientJID:
+            # This was not for us.
+            return
+        elif (event.sender != self.service or
+              event.nodeIdentifier != self.nodeIdentifier):
             log.msg("Got event from %r, node %r. Unsubscribing." % (
                 event.sender, event.nodeIdentifier))
             self.unsubscribe(event.sender, event.nodeIdentifier,
@@ -343,7 +351,7 @@ class PubSubClientFromNotifier(PubSubClient):
             for notification in self._notificationsFromItems(event.items):
                 self.notifier.notify(notification)
                 self.history.append(notification)
-            self.history = self.history[self.maxHistory:]
+            self.history = self.history[-self.maxHistory:]
 
 
     def getHistory(self):
