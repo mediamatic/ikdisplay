@@ -60,18 +60,17 @@ class PubSubClientFromAggregator(PubSubClient):
         If items are received from unknown nodes, the subscription is
         cancelled.
         """
+        if event.recipient != self.parent.jid:
+            # This was not for us.
+            return
+
         try:
             nodeInfo = self.nodes[event.sender, event.nodeIdentifier]
         except KeyError:
-            msg = "Got event from %r, node %r." % (event.sender,
-                                                   event.nodeIdentifier)
-            if event.recipient == self.parent.jid:
-                msg += " Unsubscribing."
-                self.unsubscribe(event.sender, event.nodeIdentifier,
-                                 event.recipient)
-            else:
-                msg += " Dropping."
-            log.msg(msg)
+            msg = "Got event from %r, node %r. Unsubscribing"
+            log.msg(msg % (event.sender, event.nodeIdentifier))
+            self.unsubscribe(event.sender, event.nodeIdentifier,
+                             event.recipient)
         else:
             for item in event.items:
                 try:
@@ -338,7 +337,7 @@ class PubSubClientFromNotifier(PubSubClient):
         @param event: The publish-subscribe event containing the items.
         @type event: L{pubsub.ItemsEvent}.
         """
-        if event.recipient != self.parent.clientJID:
+        if event.recipient != self.parent.jid:
             # This was not for us.
             return
         elif (event.sender != self.service or

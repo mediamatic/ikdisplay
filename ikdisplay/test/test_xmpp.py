@@ -9,6 +9,84 @@ from twisted.words.xish import domish
 from wokkel import pubsub
 from ikdisplay import xmpp
 
+class TestAggregator(object):
+    """
+    A notifier that stores all notification in sequence.
+    """
+
+    def __init__(self):
+        self.notifications = []
+
+
+    def processNotification(self, notification):
+        self.notifications.append(notification)
+
+
+class PubSubClientFromAggregatorTest(unittest.TestCase):
+
+    def setUp(self):
+        self.jid = JID('user@example.org/Home')
+        serviceJID = JID('pubsub.example.org')
+        nodeIdentifier = 'test'
+        nodes = {(serviceJID, nodeIdentifier): {'type': 'status'}}
+
+        self.aggregator = TestAggregator()
+        self.client = xmpp.PubSubClientFromAggregator(self.aggregator,
+                                                      nodes)
+        self.client.parent = self
+
+        payload = domish.Element(('', 'rsp'))
+        payload.addElement('status', content='test')
+        person = payload.addElement('person')
+        person.addElement('title', content="Test User")
+        item = pubsub.Item(payload=payload)
+        self.event = pubsub.ItemsEvent(serviceJID, self.jid,
+                                       nodeIdentifier, [item], None)
+
+
+    def test_itemsReceivedNotify(self):
+        """
+        Received items result in notifications being generated and notified.
+        """
+        self.client.itemsReceived(self.event)
+        self.assertEquals(1, len(self.aggregator.notifications))
+        notification = self.aggregator.notifications[-1]
+        self.assertEquals(u'Test User', notification[u'title'])
+
+
+    def test_itemsReceivedNotifyUnknownUnsubscribe(self):
+        """
+        Items received from unknown nodes cause unsubscription.
+        """
+        unsubscribed = []
+
+        def unsubscribe(sender, nodeIdentifier, recipient):
+            unsubscribed.append(None)
+        self.client.unsubscribe = unsubscribe
+        self.event.nodeIdentifier = 'unknown'
+
+        self.client.itemsReceived(self.event)
+        self.assertEquals(0, len(self.aggregator.notifications))
+        self.assertEquals(1, len(unsubscribed))
+
+
+    def test_itemsReceivedNotifyOtherResource(self):
+        """
+        Notifications sent to another JID are ignored.
+        """
+        unsubscribed = []
+
+        def unsubscribe(sender, nodeIdentifier, recipient):
+            unsubscribed.append(None)
+        self.client.unsubscribe = unsubscribe
+        self.event.recipient = JID('user@example.org/Other')
+
+        self.client.itemsReceived(self.event)
+        self.assertEquals(0, len(self.aggregator.notifications))
+        self.assertEquals(0, len(unsubscribed))
+
+
+
 class TestNotifier(object):
     """
     A notifier that stores all notification in sequence.
@@ -29,7 +107,7 @@ class PubSubClientFromNotifierTest(unittest.TestCase):
     """
 
     def setUp(self):
-        self.clientJID = JID('user@example.org/Home')
+        self.jid = JID('user@example.org/Home')
         serviceJID = JID('pubsub.example.org')
         nodeIdentifier = 'test'
 
@@ -42,7 +120,7 @@ class PubSubClientFromNotifierTest(unittest.TestCase):
         payload = domish.Element((xmpp.NS_NOTIFICATION, 'notification'))
         payload.addElement('title', content='test')
         item = pubsub.Item(payload=payload)
-        self.event = pubsub.ItemsEvent(serviceJID, self.clientJID,
+        self.event = pubsub.ItemsEvent(serviceJID, self.jid,
                                        nodeIdentifier, [item], None)
 
 
