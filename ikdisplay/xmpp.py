@@ -176,7 +176,7 @@ class PubSubClientFromAggregator(PubSubClient):
 class PresenceHandler(PresenceProtocol):
 
     def connectionInitialized(self):
-        PresenceProtocol.__init__(self)
+        PresenceProtocol.connectionInitialized(self)
         self.available(priority=-1)
 
 
