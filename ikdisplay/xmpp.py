@@ -20,6 +20,9 @@ ALIEN = u'Een illegale alien'
 VOTED = u'stemde op %s'
 PRESENT = u'is bij de ingang gesignaleerd'
 ALIEN_PRESENT = u'is bij de ingang tegengehouden'
+IKCAM_PICTURE_SINGULAR = u'ging op de foto'
+IKCAM_PICTURE_PLURAL = u'gingen op de foto'
+IKCAM_EVENT = u'bij %s'
 
 class PubSubClientFromAggregator(PubSubClient):
     """
@@ -167,10 +170,35 @@ class PubSubClientFromAggregator(PubSubClient):
 
 
     def format_twitter(self, status):
-        return {'title': unicode(status.user.screen_name),
+        return {'title': u'@' + unicode(status.user.screen_name),
                 'subtitle': unicode(status.text),
                 }
 
+
+    def format_ikcam(self, entry):
+        """
+        Format an ikcam notification.
+        """
+
+        participants = [unicode(element)
+                        for element in entry.participants.elements()
+                        if element.name == 'participant']
+
+        if not participants:
+            return
+        elif len(participants) == 1:
+            subtitle = IKCAM_PICTURE_SINGULAR
+        else:
+            subtitle = IKCAM_PICTURE_PLURAL
+
+        if entry.event:
+            subtitle += ' '
+            subtitle += IKCAM_EVENT % unicode(entry.event.title)
+
+
+        return {'title': u', '.join(participants),
+                'subtitle': subtitle
+                }
 
 
 class PresenceHandler(PresenceProtocol):
