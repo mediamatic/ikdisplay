@@ -10,7 +10,7 @@ from twisted.words.xish import domish
 from wokkel.client import XMPPClient
 from wokkel.ping import PingClientProtocol
 from wokkel.pubsub import Item, PubSubClient
-from wokkel.xmppim import AvailabilityPresence, MessageProtocol
+from wokkel.xmppim import MessageProtocol, PresenceProtocol
 
 NS_NOTIFICATION = 'http://mediamatic.nl/ns/ikdisplay/2009/notification'
 NS_X_DELAY='jabber:x:delay'
@@ -173,17 +173,37 @@ class PubSubClientFromAggregator(PubSubClient):
 
 
 
+class PresenceHandler(PresenceProtocol):
+
+    def connectionInitialized(self):
+        PresenceProtocol.__init__(self)
+        self.available(priority=-1)
+
+
+
 class GroupChatHandler(MessageProtocol):
 
     def __init__(self, aggregator, occupantJID):
         self.aggregator = aggregator
         self.occupantJID = occupantJID
+        self.presenceHandler = None
 
 
     def connectionInitialized(self):
         MessageProtocol.connectionInitialized(self)
-        presence = AvailabilityPresence(self.occupantJID)
-        self.send(presence.toElement())
+
+        if self.presenceHandler is None:
+            # Look for a presence handler
+            for handler in self.parent:
+                if isinstance(handler, PresenceProtocol):
+                    self.presenceHandler = handler
+                    break
+
+        # Send presence to the room to join
+        if self.presenceHandler is not None:
+            self.presenceHandler.available(recipient=self.occupantJID)
+        else:
+            log.msg("No presence handler available for this connection!")
 
 
     def onMessage(self, message):
@@ -370,7 +390,9 @@ def makeService(config):
     xmppService = XMPPClient(config['jid'], config['secret'])
     if config['verbose']:
         xmppService.logTraffic = True
-    xmppService.send('<presence><priority>-1</priority></presence>')
+
+    presenceHandler = Pinger(config['service'])
+    presenceHandler.setHandlerParent(xmppService)
 
     pinger = Pinger(config['service'])
     pinger.setHandlerParent(xmppService)
