@@ -391,7 +391,7 @@ def makeService(config):
     if config['verbose']:
         xmppService.logTraffic = True
 
-    presenceHandler = Pinger(config['service'])
+    presenceHandler = PresenceHandler()
     presenceHandler.setHandlerParent(xmppService)
 
     pinger = Pinger(config['service'])
