@@ -1,0 +1,101 @@
+/* ikDisplay styles.
+----------------------------------------------------------
+
+@package:	atatonic CSS framework 2009	
+@Author: 	Tim Benniks <tim@timbenniks.com>
+@Created: 	31-08-2009
+
+---------------------------------------------------------- */
+
+body {
+	background: #fff;
+	margin: 18px 0 0 0;
+	font: 13px/18px Georgia, "Times new roman", serif;
+	color: #000;
+	overflow-y: hidden;
+    letter-spacing: 0.1em;
+}
+
+.zp-wrapper {
+	width: 100%;
+	position: relative;
+}
+
+.fader {
+	position: absolute;
+	width: 100%;
+	bottom: 0;
+	height: 300px;
+}
+
+li.backchannel-item {
+	display: block;
+    padding: 0 14px;
+}
+
+li.backchannel-item .list-ikdisplay-backchannel-wrap {
+	margin: 0 0 12px;
+	display: block;
+    padding: 0 0 15px;
+	border-bottom: 1px dashed green;
+    min-height: 95px;
+}
+
+	div.list-ikdisplay-backchannel-icon-wrap {
+		width: 80px;
+		height: 80px;
+        float: left;
+	}
+	
+	.list-ikdisplay-backchannel-icon-wrap img {
+		width: 80px;
+		height: 80px;
+        display: block;
+	}
+
+	div.list-ikdisplay-backchannel-text-wrap {
+        margin-left: 95px;
+	}
+
+        p.list-ikdisplay-backchannel-text {
+            margin: 0px;
+        }
+
+            span.list-ikdisplay-backchannel-title {
+                display: inline;
+                line-height: 50px;
+                font-size: 34px;
+                color: #888;
+            }
+            
+            span.list-ikdisplay-backchannel-status {
+                font-size: 34px;
+                line-height: 50px;
+                margin: 0;
+                display: inline;
+                font-style: italic;
+            }
+            
+            span.list-ikdisplay-backchannel-meta {
+                font-style: normal;
+                font-weight: normal;
+                font-size: 20px;
+                line-height: 24px;
+                color: #888;
+                display: inline;
+            }
+        
+        p.list-ikdisplay-backchannel-picture {
+            height: 480px;
+            display: block;
+        }
+
+        .list-ikdisplay-backchannel-picture img {
+            height: 480px;
+        }
+
+
+.clone-item {
+	display: none !important;
+	height: 120px !important;
+}

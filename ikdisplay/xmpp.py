@@ -90,6 +90,9 @@ class PubSubClientFromAggregator(PubSubClient):
                             (event.nodeIdentifier, event.sender, nodeType))
                 else:
                     notification = method(element)
+                    if 'via' in nodeInfo:
+                        notification['via'] = nodeInfo['via']
+
                     if notification:
                         self.aggregator.processNotification(notification)
                     else:
@@ -160,7 +163,7 @@ class PubSubClientFromAggregator(PubSubClient):
 
         return {'title': unicode(status.person.title),
                 'subtitle': text,
-                'image': unicode(status.person.image)}
+                'icon': unicode(status.person.image)}
 
 
     def format_atom(self, entry):
@@ -172,6 +175,7 @@ class PubSubClientFromAggregator(PubSubClient):
     def format_twitter(self, status):
         return {'title': u'@' + unicode(status.user.screen_name),
                 'subtitle': unicode(status.text),
+                'icon': unicode(status.user.profile_image),
                 }
 
 
@@ -197,7 +201,9 @@ class PubSubClientFromAggregator(PubSubClient):
 
 
         return {'title': u', '.join(participants),
-                'subtitle': subtitle
+                'subtitle': subtitle,
+                'icon': u'http://docs.mediamatic.nl/images/ikcam-80x80.png',
+                'picture': unicode(entry.picture.rsc_uri),
                 }
 
 
