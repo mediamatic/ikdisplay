@@ -91,7 +91,7 @@ class PubSubClientFromAggregator(PubSubClient):
                 else:
                     notification = method(element)
                     if 'via' in nodeInfo:
-                        notification['via'] = nodeInfo['via']
+                        notification['meta'] = u"via %s" % nodeInfo['via']
 
                     if notification:
                         self.aggregator.processNotification(notification)
