@@ -175,7 +175,7 @@ class PubSubClientFromAggregator(PubSubClient):
     def format_twitter(self, status):
         return {'title': u'@' + unicode(status.user.screen_name),
                 'subtitle': unicode(status.text),
-                'icon': unicode(status.user.profile_image),
+                'icon': unicode(status.user.profile_image_url),
                 }
 
 
