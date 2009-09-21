@@ -258,6 +258,7 @@ class GroupChatHandler(MessageProtocol):
 
 
 class Pinger(PingClientProtocol):
+    verbose = False
 
     def __init__(self, entity):
         self.entity = entity
@@ -274,10 +275,12 @@ class Pinger(PingClientProtocol):
 
 
     def doPing(self):
-        log.msg("*** PING ***")
+        if self.verbose:
+            log.msg("*** PING ***")
 
         def cb(result):
-            log.msg("*** PONG ***")
+            if self.verbose:
+                log.msg("*** PONG ***")
 
         def eb(failure):
             failure.trap(error.StanzaError)
@@ -430,5 +433,6 @@ def makeService(config):
 
     pinger = Pinger(config['service'])
     pinger.setHandlerParent(xmppService)
+    pinger.verbose = config['verbose']
 
     return xmppService
