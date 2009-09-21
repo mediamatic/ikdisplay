@@ -40,10 +40,11 @@ li.backchannel-item .list-ikdisplay-backchannel-wrap {
 	border-bottom: 1px dashed green;
     min-height: 95px;
 }
+    .list-ikdisplay-backchannel-wrap img {
+        margin: 0 12px 12px 0;
+    }
 
 	div.list-ikdisplay-backchannel-icon-wrap {
-		width: 80px;
-		height: 80px;
         float: left;
 	}
 	
@@ -51,10 +52,19 @@ li.backchannel-item .list-ikdisplay-backchannel-wrap {
 		width: 80px;
 		height: 80px;
         display: block;
+        margin-right: 
 	}
 
+    p.list-ikdisplay-backchannel-picture {
+        display: block;
+    }
+
+    .list-ikdisplay-backchannel-picture img {
+        height: 320px;
+    }
+
 	div.list-ikdisplay-backchannel-text-wrap {
-        margin-left: 95px;
+		display: table;
 	}
 
         p.list-ikdisplay-backchannel-text {
@@ -65,7 +75,7 @@ li.backchannel-item .list-ikdisplay-backchannel-wrap {
                 display: inline;
                 line-height: 50px;
                 font-size: 34px;
-                color: #888;
+                color: #666;
             }
             
             span.list-ikdisplay-backchannel-status {
@@ -74,6 +84,7 @@ li.backchannel-item .list-ikdisplay-backchannel-wrap {
                 margin: 0;
                 display: inline;
                 font-style: italic;
+                padding-left: 6px;
             }
             
             span.list-ikdisplay-backchannel-meta {
@@ -81,18 +92,11 @@ li.backchannel-item .list-ikdisplay-backchannel-wrap {
                 font-weight: normal;
                 font-size: 20px;
                 line-height: 24px;
-                color: #888;
+                color: #666;
                 display: inline;
+                padding-left: 6px;
             }
         
-        p.list-ikdisplay-backchannel-picture {
-            height: 480px;
-            display: block;
-        }
-
-        .list-ikdisplay-backchannel-picture img {
-            height: 480px;
-        }
 
 
 .clone-item {

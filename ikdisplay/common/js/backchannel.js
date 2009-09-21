@@ -43,18 +43,21 @@ backChannel =
 		$('.list-ikdisplay-backchannel-title', clone).text(message.title);
 		$('.list-ikdisplay-backchannel-status', clone).text(message.text);
 		$('.list-ikdisplay-backchannel-meta', clone).text(message.meta);
-        if (message.icon)
-        {
-            $('.list-ikdisplay-backchannel-icon-wrap img', clone).attr('src', message.icon);
-        } else {
-            $('.list-ikdisplay-backchannel-icon-wrap', clone).remove();
-            $('.list-ikdisplay-backchannel-wrap', clone).css('min-height', '0px');
-        }
+
         if (message.picture)
         {
+            $('.list-ikdisplay-backchannel-icon-wrap img', clone).remove();
             $('.list-ikdisplay-backchannel-picture img', clone).attr('src', message.picture);
         } else {
             $('.list-ikdisplay-backchannel-picture', clone).remove();
+
+            if (message.icon)
+            {
+                $('.list-ikdisplay-backchannel-icon-wrap img', clone).attr('src', message.icon);
+            } else {
+                $('.list-ikdisplay-backchannel-icon-wrap', clone).remove();
+                $('.list-ikdisplay-backchannel-wrap', clone).css('min-height', '0px');
+            }
         }
 	},
 	
