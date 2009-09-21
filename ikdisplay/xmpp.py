@@ -23,6 +23,7 @@ ALIEN_PRESENT = u'is bij de ingang tegengehouden'
 IKCAM_PICTURE_SINGULAR = u'ging op de foto'
 IKCAM_PICTURE_PLURAL = u'gingen op de foto'
 IKCAM_EVENT = u'bij %s'
+DIGGS = u'eet graag %s'
 
 class PubSubClientFromAggregator(PubSubClient):
     """
@@ -152,6 +153,18 @@ class PubSubClientFromAggregator(PubSubClient):
             title = ALIEN
             subtitle = ALIEN_PRESENT
 
+
+        return {"title": title, "subtitle": subtitle}
+
+
+    def format_voteDiggs(self, vote):
+        title = self._voteToName(vote)
+        answer = self._voteToAnswer(vote)
+
+        if not title:
+            title = ALIEN
+
+        subtitle = DIGGS % (answer)
 
         return {"title": title, "subtitle": subtitle}
 
