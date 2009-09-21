@@ -154,7 +154,7 @@ class PubSubClientFromAggregator(PubSubClient):
         notification = {
                 'title': title,
                 'subtitle': subtitle,
-                'icon': u'http://docs.mediamatic.nl/images/ikpoll-80x80.png',
+                'icon': unicode(vote.person.image),
                 }
 
         try:
