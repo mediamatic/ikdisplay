@@ -8,6 +8,7 @@ from twisted.words.protocols.jabber.xmlstream import IQ
 from twisted.words.xish import domish
 
 from wokkel.client import XMPPClient
+from wokkel.generic import parseXml
 from wokkel.ping import PingClientProtocol
 from wokkel.pubsub import Item, PubSubClient
 from wokkel.xmppim import MessageProtocol, PresenceProtocol
@@ -15,6 +16,7 @@ from wokkel.xmppim import MessageProtocol, PresenceProtocol
 NS_NOTIFICATION = 'http://mediamatic.nl/ns/ikdisplay/2009/notification'
 NS_X_DELAY='jabber:x:delay'
 NS_DELAY='urn:xmpp:delay'
+NS_ATOM = 'http://www.w3.org/2005/Atom'
 
 ALIEN = u'Een illegale alien'
 VOTED = u'stemde op %s'
@@ -24,6 +26,8 @@ IKCAM_PICTURE_SINGULAR = u'ging op de foto'
 IKCAM_PICTURE_PLURAL = u'gingen op de foto'
 IKCAM_EVENT = u'bij %s'
 DIGGS = u'eet graag %s'
+FLICKR_UPLOAD = u'plaatste een plaatje'
+FLICKR_MORE = u' (en nog %d meer)'
 
 class PubSubClientFromAggregator(PubSubClient):
     """
@@ -75,29 +79,35 @@ class PubSubClientFromAggregator(PubSubClient):
             log.msg(msg % (event.sender, event.nodeIdentifier))
             self.unsubscribe(event.sender, event.nodeIdentifier,
                              event.recipient)
-        else:
-            for item in event.items:
-                try:
-                    element = item.elements().next()
-                except (StopIteration):
-                    continue
 
-                nodeType = nodeInfo['type']
-                try:
-                    method = getattr(self, 'format_' + nodeType)
-                except AttributeError:
-                    log.msg("No formatter has been defined for "
-                            "%r at %r (%s). Dropping." %
-                            (event.nodeIdentifier, event.sender, nodeType))
-                else:
-                    notification = method(element)
-                    if 'via' in nodeInfo:
-                        notification['meta'] = u"via %s" % nodeInfo['via']
+        nodeType = nodeInfo['type']
+        processor = getattr(self, 'process_' + nodeType, self.processItems)
+        processor(event, nodeInfo)
 
-                    if notification:
-                        self.aggregator.processNotification(notification)
-                    else:
-                        log.msg("Formatter returned None. Dropping.")
+
+    def processItems(self, event, nodeInfo):
+        nodeType = nodeInfo['type']
+        try:
+            formatter = getattr(self, 'format_' + nodeType)
+        except AttributeError:
+            log.msg("No formatter has been defined for "
+                    "%r at %r (%s). Dropping." %
+                    (event.nodeIdentifier, event.sender, nodeType))
+
+        for item in event.items:
+            try:
+                element = item.elements().next()
+            except (StopIteration):
+                continue
+
+            notification = formatter(element)
+            if 'via' in nodeInfo:
+                notification['meta'] = u"via %s" % nodeInfo['via']
+
+            if notification:
+                self.aggregator.processNotification(notification)
+            else:
+                log.msg("Formatter returned None. Dropping.")
 
 
     def publishNotification(self, service, nodeIdentifier, notification):
@@ -218,6 +228,62 @@ class PubSubClientFromAggregator(PubSubClient):
                 'icon': u'http://docs.mediamatic.nl/images/ikcam-80x80.png',
                 'picture': unicode(entry.picture.rsc_uri),
                 }
+
+
+    def process_flickr(self, event, nodeInfo):
+        import feedparser
+
+        nodeType = nodeInfo['type']
+
+        elements = (item.entry for item in event.items
+                               if item.entry and item.entry.uri == NS_ATOM)
+
+        feedDocument = domish.Element((NS_ATOM, 'feed'))
+        for element in elements:
+            feedDocument.addChild(element)
+
+        feed = feedparser.parse(feedDocument.toXml().encode('utf-8'))
+        entries = feed.entries
+
+        entriesByAuthor = {}
+        for entry in entries:
+            if not hasattr(entry, 'enclosures'):
+                return
+
+            author = getattr(entry, 'author', None) or ALIEN
+            entriesByAuthor.setdefault(author, {'entry': entry, 'count': 0})
+            entriesByAuthor[author]['count'] += 1
+
+        for author, value in entriesByAuthor.iteritems():
+            entry = value['entry']
+            count = value['count']
+
+            subtitle = FLICKR_UPLOAD
+            if count > 1:
+                subtitle += FLICKR_MORE % (count - 1,)
+
+            content = entry.content[0].value.encode('utf-8')
+            parsedContent = parseXml(content)
+            print parsedContent.toXml()
+
+            uri = None
+
+            for element in parsedContent.elements():
+                if element.a and element.a.img:
+                    uri = element.a.img['src']
+
+            if uri:
+                ext = uri.rsplit('.', 1)[1]
+                uriParts = uri.split('_')
+                uri = u'%s.%s' % (u'_'.join(uriParts[:-1]), ext)
+
+            notification = {'title': author,
+                            'subtitle': subtitle,
+                            'meta': u"via %s" % nodeInfo['via'],
+                            'picture': uri,
+                            }
+            self.aggregator.processNotification(notification)
+
 
 
 class PresenceHandler(PresenceProtocol):
