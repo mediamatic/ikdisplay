@@ -18,25 +18,44 @@ NS_X_DELAY='jabber:x:delay'
 NS_DELAY='urn:xmpp:delay'
 NS_ATOM = 'http://www.w3.org/2005/Atom'
 
-ALIEN = u'Een illegale alien'
-VOTED = u'stemde op %s'
-PRESENT = u'is bij de ingang gesignaleerd'
-ALIEN_PRESENT = u'is bij de ingang tegengehouden'
-IKCAM_PICTURE_SINGULAR = u'ging op de foto'
-IKCAM_PICTURE_PLURAL = u'gingen op de foto'
-IKCAM_EVENT = u'bij %s'
-DIGGS = u'eet graag %s'
-FLICKR_UPLOAD = u'plaatste een plaatje'
-FLICKR_MORE = u' (en nog %d meer)'
+TEXTS = {
+        'nl': {
+            'via': u'via %s',
+            'alien': u'Een illegale alien',
+            'voted': u'stemde op %s',
+            'present': u'is bij de ingang gesignaleerd',
+            'alien_present': u'is bij de ingang tegengehouden',
+            'ikcam_picture_singular': u'ging op de foto',
+            'ikcam_picture_plural': u'gingen op de foto',
+            'ikcam_event': u' bij %s',
+            'diggs': u'eet graag %s',
+            'flickr_upload': u'plaatste een plaatje',
+            'flickr_more': u' (en nog %d meer)',
+            },
+        'en': {
+            'via': u'via %s',
+            'alien': u'An illegal alien',
+            'voted': u'voted for %s',
+            'present': u'was seen at the entrance',
+            'alien_present': u'has been detained at the entrance',
+            'ikcam_picture_singular': u'was photographed',
+            'ikcam_picture_plural': u'were photographed',
+            'ikcam_event': u' at %s',
+            'diggs': u'diggs %s',
+            'flickr_upload': u'posted a picture',
+            'flickr_more': u' (and %d more)',
+            },
+        }
 
 class PubSubClientFromAggregator(PubSubClient):
     """
     Publish-subscribe client that renders to notifications for aggregation.
     """
 
-    def __init__(self, aggregator, nodes):
+    def __init__(self, aggregator, nodes, language):
         self.aggregator = aggregator
         self.nodes = nodes
+        self.texts = TEXTS[language]
 
     def connectionInitialized(self):
         """
@@ -102,7 +121,7 @@ class PubSubClientFromAggregator(PubSubClient):
 
             notification = formatter(element, nodeInfo)
             if 'via' in nodeInfo:
-                notification['meta'] = u"via %s" % nodeInfo['via']
+                notification['meta'] = self.texts['via'] % nodeInfo['via']
 
             if notification:
                 self.aggregator.processNotification(notification)
@@ -147,9 +166,9 @@ class PubSubClientFromAggregator(PubSubClient):
         answer = self._voteToAnswer(vote)
 
         if not title:
-            title = ALIEN
+            title = self.texts('alien')
 
-        subtitle = VOTED % (answer)
+        subtitle = self.texts['voted'] % (answer)
 
         notification = {
                 'title': title,
@@ -171,10 +190,10 @@ class PubSubClientFromAggregator(PubSubClient):
         title = self._voteToName(vote)
 
         if title:
-            subtitle = PRESENT
+            subtitle = self.texts['present']
         else:
-            title = ALIEN
-            subtitle = ALIEN_PRESENT
+            title = self.texts['alien']
+            subtitle = self.texts['alien_present']
 
 
         return {"title": title,
@@ -184,7 +203,7 @@ class PubSubClientFromAggregator(PubSubClient):
 
     def format_vote_diggs(self, vote):
         answer = self._voteToAnswer(vote)
-        subtitle = DIGGS % (answer)
+        subtitle = self.texts['diggs'] % (answer)
         return {"subtitle": subtitle}
 
 
@@ -223,13 +242,12 @@ class PubSubClientFromAggregator(PubSubClient):
         if not participants:
             return
         elif len(participants) == 1:
-            subtitle = IKCAM_PICTURE_SINGULAR
+            subtitle = self.texts['ikcam_picture_singular']
         else:
-            subtitle = IKCAM_PICTURE_PLURAL
+            subtitle = self.texts['ikcam_picture_plural']
 
         if entry.event:
-            subtitle += ' '
-            subtitle += IKCAM_EVENT % unicode(entry.event.title)
+            subtitle += self.texts['ikcam_event'] % unicode(entry.event.title)
 
 
         return {'title': u', '.join(participants),
@@ -257,7 +275,7 @@ class PubSubClientFromAggregator(PubSubClient):
             if not hasattr(entry, 'enclosures'):
                 return
 
-            author = getattr(entry, 'author', None) or ALIEN
+            author = getattr(entry, 'author', None) or self.texts['alien']
             entriesByAuthor.setdefault(author, {'entry': entry, 'count': 0})
             entriesByAuthor[author]['count'] += 1
 
@@ -265,9 +283,9 @@ class PubSubClientFromAggregator(PubSubClient):
             entry = value['entry']
             count = value['count']
 
-            subtitle = FLICKR_UPLOAD
+            subtitle = self.texts['flickr_upload']
             if count > 1:
-                subtitle += FLICKR_MORE % (count - 1,)
+                subtitle += self.texts['flickr_more'] % (count - 1,)
 
             content = entry.content[0].value.encode('utf-8')
             parsedContent = parseXml(content)
