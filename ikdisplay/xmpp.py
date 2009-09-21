@@ -100,7 +100,7 @@ class PubSubClientFromAggregator(PubSubClient):
             except (StopIteration):
                 continue
 
-            notification = formatter(element)
+            notification = formatter(element, nodeInfo)
             if 'via' in nodeInfo:
                 notification['meta'] = u"via %s" % nodeInfo['via']
 
@@ -142,7 +142,7 @@ class PubSubClientFromAggregator(PubSubClient):
         return None
 
 
-    def format_voteSimple(self, vote):
+    def format_vote(self, vote, nodeInfo):
         title = self._voteToName(vote)
         answer = self._voteToAnswer(vote)
 
@@ -151,10 +151,23 @@ class PubSubClientFromAggregator(PubSubClient):
 
         subtitle = VOTED % (answer)
 
-        return {"title": title, "subtitle": subtitle}
+        notification = {
+                'title': title,
+                'subtitle': subtitle,
+                'icon': u'http://docs.mediamatic.nl/images/ikpoll-80x80.png',
+                }
 
+        try:
+            voteType = nodeInfo['voteType']
+            method = getattr(self, 'format_vote_%s' % voteType)
+        except (AttributeError, KeyError):
+            pass
+        else:
+            notification.update(method(vote))
 
-    def format_votePresence(self, vote):
+        return notification
+
+    def format_vote_presence(self, vote):
         title = self._voteToName(vote)
 
         if title:
@@ -164,22 +177,18 @@ class PubSubClientFromAggregator(PubSubClient):
             subtitle = ALIEN_PRESENT
 
 
-        return {"title": title, "subtitle": subtitle}
+        return {"title": title,
+                "subtitle": subtitle,
+                }
 
 
-    def format_voteDiggs(self, vote):
-        title = self._voteToName(vote)
+    def format_vote_diggs(self, vote):
         answer = self._voteToAnswer(vote)
-
-        if not title:
-            title = ALIEN
-
         subtitle = DIGGS % (answer)
+        return {"subtitle": subtitle}
 
-        return {"title": title, "subtitle": subtitle}
 
-
-    def format_status(self, status):
+    def format_status(self, status, nodeInfo):
         text = unicode(status.status).strip()
         if not text or text == 'is':
             return None
@@ -189,20 +198,20 @@ class PubSubClientFromAggregator(PubSubClient):
                 'icon': unicode(status.person.image)}
 
 
-    def format_atom(self, entry):
+    def format_atom(self, entry, nodeInfo):
         import feedparser
         data = feedparser.parse(entry)
         return {'title': data.entries[0].title}
 
 
-    def format_twitter(self, status):
+    def format_twitter(self, status, nodeInfo):
         return {'title': u'@' + unicode(status.user.screen_name),
                 'subtitle': unicode(status.text),
                 'icon': unicode(status.user.profile_image_url),
                 }
 
 
-    def format_ikcam(self, entry):
+    def format_ikcam(self, entry, nodeInfo):
         """
         Format an ikcam notification.
         """
@@ -232,8 +241,6 @@ class PubSubClientFromAggregator(PubSubClient):
 
     def process_flickr(self, event, nodeInfo):
         import feedparser
-
-        nodeType = nodeInfo['type']
 
         elements = (item.entry for item in event.items
                                if item.entry and item.entry.uri == NS_ATOM)
