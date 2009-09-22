@@ -30,22 +30,24 @@ body {
 
 li.backchannel-item {
 	display: block;
-    padding: 0 14px;
+    padding: 0 14px 9px;
+    margin: 0 0 3px;
 }
 
 li.backchannel-item .list-ikdisplay-backchannel-wrap {
-	margin: 0 0 12px;
+	margin: 0 0 0px;
 	display: block;
-    padding: 0 0 15px;
+    padding: 0 0 3px;
 	border-bottom: 1px dashed green;
-    min-height: 95px;
+    min-height: 60px;
 }
     .list-ikdisplay-backchannel-wrap img {
-        margin: 0 12px 12px 0;
+        margin: 6px 12px 12px 0;
     }
 
 	div.list-ikdisplay-backchannel-icon-wrap {
         float: left;
+        margin: 0px;
 	}
 	
 	.list-ikdisplay-backchannel-icon-wrap img {
@@ -73,14 +75,14 @@ li.backchannel-item .list-ikdisplay-backchannel-wrap {
 
             span.list-ikdisplay-backchannel-title {
                 display: inline;
-                line-height: 50px;
-                font-size: 34px;
+                font-size: 30px;
+                line-height: 36px;
                 color: #666;
             }
             
             span.list-ikdisplay-backchannel-status {
-                font-size: 34px;
-                line-height: 50px;
+                font-size: 30px;
+                line-height: 36px;
                 margin: 0;
                 display: inline;
                 font-style: italic;
@@ -90,8 +92,8 @@ li.backchannel-item .list-ikdisplay-backchannel-wrap {
             span.list-ikdisplay-backchannel-meta {
                 font-style: normal;
                 font-weight: normal;
-                font-size: 20px;
-                line-height: 24px;
+                font-size: 24px;
+                line-height: 30px;
                 color: #666;
                 display: inline;
                 padding-left: 6px;

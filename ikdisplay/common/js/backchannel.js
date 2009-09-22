@@ -26,7 +26,7 @@ backChannel =
 	{
         var clonedItem = $('.clone-item').clone().show().css({opacity: 0}).appendTo($('.tmp')).removeClass('clone-item');
         backChannel.fillClone(clonedItem, message);
-        clonedItemHeight = clonedItem.height();
+        clonedItemHeight = $('.list-ikdisplay-backchannel-wrap', clonedItem).height();
         clonedItem  
 				.removeClass('clone-item')
 				.addClass('item')
