@@ -120,10 +120,10 @@ class PubSubClientFromAggregator(PubSubClient):
                 continue
 
             notification = formatter(element, nodeInfo)
-            if 'via' in nodeInfo:
-                notification['meta'] = self.texts['via'] % nodeInfo['via']
 
             if notification:
+                if 'via' in nodeInfo:
+                    notification['meta'] = self.texts['via'] % nodeInfo['via']
                 self.aggregator.processNotification(notification)
             else:
                 log.msg("Formatter returned None. Dropping.")
