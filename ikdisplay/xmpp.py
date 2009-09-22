@@ -168,7 +168,8 @@ class PubSubClientFromAggregator(PubSubClient):
         if not title:
             title = self.texts('alien')
 
-        subtitle = self.texts['voted'] % (answer)
+        template = nodeInfo.get('template', self.texts['voted'])
+        subtitle = template % answer
 
         notification = {
                 'title': title,
@@ -199,12 +200,6 @@ class PubSubClientFromAggregator(PubSubClient):
         return {"title": title,
                 "subtitle": subtitle,
                 }
-
-
-    def format_vote_diggs(self, vote):
-        answer = self._voteToAnswer(vote)
-        subtitle = self.texts['diggs'] % (answer)
-        return {"subtitle": subtitle}
 
 
     def format_status(self, status, nodeInfo):
