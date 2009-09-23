@@ -321,6 +321,22 @@ class PubSubClientFromAggregator(PubSubClient):
                 }
 
 
+    def format_simple(self, element, nodeInfo):
+        elementMap = {'title': 'title',
+                      'subtitle': 'subtitle',
+                      'image': 'icon',
+                      }
+
+        newNotification = {}
+        for child in element.elements():
+            if child.name in elementMap:
+                newNotification[elementMap[child.name]] = unicode(child)
+        
+        newNotification['via'] = self.texts['via'] % nodeInfo['via']
+
+        return newNotification 
+
+
 
 class PresenceHandler(PresenceProtocol):
 
