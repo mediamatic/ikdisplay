@@ -48,7 +48,7 @@ TEXTS = {
             'regdesk': [u'just arrived',
                         u'showed up at the entrance',
                         u'is ready for PICNIC',
-                        u'received his badge',
+                        u'received a badge',
                         u'has entered the building',
                         ],
             },
