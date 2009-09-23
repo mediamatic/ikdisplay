@@ -31,6 +31,7 @@ TEXTS = {
             'diggs': u'eet graag %s',
             'flickr_upload': u'plaatste een plaatje',
             'flickr_more': u' (en nog %d meer)',
+            'regdesk': [u'is binnen'],
             },
         'en': {
             'via': u'via %s',
@@ -44,6 +45,12 @@ TEXTS = {
             'diggs': u'diggs %s',
             'flickr_upload': u'posted a picture',
             'flickr_more': u' (and %d more)',
+            'regdesk': [u'just arrived',
+                        u'showed up at the entrance',
+                        u'is ready for PICNIC',
+                        u'received his badge',
+                        u'has entered the building',
+                        ],
             },
         }
 
@@ -303,6 +310,15 @@ class PubSubClientFromAggregator(PubSubClient):
                             'picture': uri,
                             }
             self.aggregator.processNotification(notification)
+
+
+    def format_regdesk(self, regdesk, nodeInfo):
+        import random
+        subtitle = random.choice(self.texts['regdesk'])
+        return {'title': unicode(regdesk.person.title),
+                'subtitle': subtitle,
+                'icon': unicode(regdesk.person.image),
+                }
 
 
 
