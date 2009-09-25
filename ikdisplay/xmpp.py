@@ -251,11 +251,12 @@ class PubSubClientFromAggregator(PubSubClient):
         if entry.event:
             subtitle += self.texts['ikcam_event'] % unicode(entry.event.title)
 
+        pictureElement = entry.picture.attachment_uri or entry.picture.rsc_uri
 
         return {'title': u', '.join(participants),
                 'subtitle': subtitle,
                 'icon': u'http://docs.mediamatic.nl/images/ikcam-80x80.png',
-                'picture': unicode(entry.picture.rsc_uri),
+                'picture': unicode(pictureElement),
                 }
 
 
