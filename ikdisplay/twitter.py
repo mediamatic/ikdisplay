@@ -58,9 +58,10 @@ class TwitterMonitor(service.Service):
     errorState = None
     consumer = None
 
-    def __init__(self, username, password, terms):
+    def __init__(self, username, password, terms, userIDs):
         self.controller = TwitterFeedWithFactory(username, password)
         self.terms = terms
+        self.userIDs = userIDs
 
     def startService(self):
         self.continueTrying = True
@@ -118,7 +119,13 @@ class TwitterMonitor(service.Service):
                 log.msg("Abandoning reconnect.")
 
 
-        self.factory = self.controller.track(self.onEntry, self.terms)
+        args = {}
+        if self.terms:
+            args['track'] = ','.join(self.terms)
+        if self.userIDs:
+            args['follow'] = ','.join(self.userIDs)
+
+        self.factory = self.controller.filter(self.onEntry, args)
         d = self.factory.deferred
         d.addCallback(cb)
         d.addErrback(trapConnectError)
