@@ -1,5 +1,7 @@
 # -*- test-case-name: ikdisplay.test.test_xmpp -*-
 
+import re
+
 from twisted.internet import defer, reactor, task
 from twisted.python import log
 from twisted.words.protocols.jabber import error
@@ -31,7 +33,10 @@ TEXTS = {
             'diggs': u'eet graag %s',
             'flickr_upload': u'plaatste een plaatje',
             'flickr_more': u' (en nog %d meer)',
-            'regdesk': [u'is binnen'],
+            'regdesk': [u'is binnen',
+                        u'is er nu ook',
+                        u'is net binnengekomen',
+                        u'is gearriveerd'],
             },
         'en': {
             'via': u'via %s',
@@ -47,7 +52,6 @@ TEXTS = {
             'flickr_more': u' (and %d more)',
             'regdesk': [u'just arrived',
                         u'showed up at the entrance',
-                        u'is ready for PICNIC',
                         u'received a badge',
                         u'has entered the building',
                         ],
@@ -59,10 +63,14 @@ class PubSubClientFromAggregator(PubSubClient):
     Publish-subscribe client that renders to notifications for aggregation.
     """
 
-    def __init__(self, aggregator, nodes, language):
+    def __init__(self, aggregator, nodes, language='en', texts=None):
         self.aggregator = aggregator
         self.nodes = nodes
-        self.texts = TEXTS[language]
+
+        if texts:
+            self.texts = texts
+        else:
+            self.texts = TEXTS[language]
 
     def connectionInitialized(self):
         """
@@ -226,10 +234,22 @@ class PubSubClientFromAggregator(PubSubClient):
 
 
     def format_twitter(self, status, nodeInfo):
-        return {'title': u'@' + unicode(status.user.screen_name),
-                'subtitle': unicode(status.text),
-                'icon': unicode(status.user.profile_image_url),
-                }
+        match = False
+
+        text = unicode(status.text)
+
+        for term in nodeInfo.get('terms', ()):
+            if re.search(term, text, re.IGNORECASE):
+                match = True
+
+        if 'userIDs' in nodeInfo:
+            match = match or (status.user.id in nodeInfo['userIDs'])
+
+        if match:
+            return {'title': u'@' + unicode(status.user.screen_name),
+                    'subtitle': unicode(status.text),
+                    'icon': unicode(status.user.profile_image_url),
+                    }
 
 
     def format_ikcam(self, entry, nodeInfo):
@@ -316,10 +336,12 @@ class PubSubClientFromAggregator(PubSubClient):
     def format_regdesk(self, regdesk, nodeInfo):
         import random
         subtitle = random.choice(self.texts['regdesk'])
-        return {'title': unicode(regdesk.person.title),
-                'subtitle': subtitle,
-                'icon': unicode(regdesk.person.image),
-                }
+
+        if regdesk.person:
+            return {'title': unicode(regdesk.person.title),
+                    'subtitle': subtitle,
+                    'icon': unicode(regdesk.person.image),
+                    }
 
 
     def format_simple(self, element, nodeInfo):
@@ -332,10 +354,10 @@ class PubSubClientFromAggregator(PubSubClient):
         for child in element.elements():
             if child.name in elementMap:
                 newNotification[elementMap[child.name]] = unicode(child)
-        
+
         newNotification['via'] = self.texts['via'] % nodeInfo['via']
 
-        return newNotification 
+        return newNotification
 
 
 
