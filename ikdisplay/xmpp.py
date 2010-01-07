@@ -234,16 +234,19 @@ class PubSubClientFromAggregator(PubSubClient):
 
 
     def format_twitter(self, status, nodeInfo):
-        match = False
-
         text = unicode(status.text)
 
-        for term in nodeInfo.get('terms', ()):
-            if re.search(term, text, re.IGNORECASE):
-                match = True
+        if 'terms' not in nodeInfo and 'userIDs' not in nodeInfo:
+            match = True
+        else:
+            match = False
 
-        if 'userIDs' in nodeInfo:
-            match = match or (status.user.id in nodeInfo['userIDs'])
+            for term in nodeInfo.get('terms', ()):
+                if re.search(term, text, re.IGNORECASE):
+                    match = True
+
+            if 'userIDs' in nodeInfo:
+                match = match or (status.user.id in nodeInfo['userIDs'])
 
         if match:
             return {'title': u'@' + unicode(status.user.screen_name),
