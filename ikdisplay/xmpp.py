@@ -81,8 +81,13 @@ class PubSubClientFromAggregator(PubSubClient):
         PubSubClient.connectionInitialized(self)
 
         clientJID = self.parent.jid
-        for service, nodeIdentifier in self.nodes:
-            self.subscribe(service, nodeIdentifier, clientJID)
+        for node, nodeInfo in self.nodes.iteritems():
+            service, nodeIdentifier = node
+            if 'options' in nodeInfo:
+                options = nodeInfo['options']
+            else:
+                options = None
+            self.subscribe(service, nodeIdentifier, clientJID, options)
 
 
     def itemsReceived(self, event):
@@ -113,6 +118,7 @@ class PubSubClientFromAggregator(PubSubClient):
             log.msg(msg % (event.sender, event.nodeIdentifier))
             self.unsubscribe(event.sender, event.nodeIdentifier,
                              event.recipient)
+            return
 
         nodeType = nodeInfo['type']
         processor = getattr(self, 'process_' + nodeType, self.processItems)
@@ -229,8 +235,32 @@ class PubSubClientFromAggregator(PubSubClient):
 
     def format_atom(self, entry, nodeInfo):
         import feedparser
-        data = feedparser.parse(entry)
-        return {'title': data.entries[0].title}
+        data = feedparser.parse(entry.toXml().encode('utf-8'))
+        if not 'entries' in data:
+            return None
+
+        notification = {}
+        entry = data.entries[0]
+
+        if not 'title' in entry:
+            return None
+        else:
+            notification['subtitle'] = entry.title
+
+        if 'author' in entry:
+            notification['title'] = entry.author
+        elif 'source' in entry and 'author' in entry.source:
+            notification['title'] = entry.source.author
+        else:
+            notification['title'] = u''
+
+        if 'link' in entry:
+            notification['link'] = entry.link
+
+        if 'source' in entry and 'icon' in entry.source:
+            notification['icon'] = entry.source.icon
+
+        return notification
 
 
     def format_twitter(self, status, nodeInfo):
@@ -467,7 +497,7 @@ class PubSubClientFromNotifier(PubSubClient):
     @type nodeIdentifier: L{unicode}.
     """
 
-    maxHistory = 5
+    maxHistory = 13
 
     def __init__(self, notifier, service, nodeIdentifier):
         PubSubClient.__init__(self)
