@@ -276,7 +276,8 @@ class PubSubClientFromAggregator(PubSubClient):
                     match = True
 
             if 'userIDs' in nodeInfo:
-                match = match or (status.user.id in nodeInfo['userIDs'])
+                userID = unicode(status.user.id)
+                match = match or (userID in nodeInfo['userIDs'])
 
         if match:
             return {'title': u'@' + unicode(status.user.screen_name),
