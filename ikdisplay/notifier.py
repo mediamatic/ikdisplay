@@ -1,6 +1,10 @@
+from zope.interface import implements
+
 from twisted.application import service, strports
 from twisted.internet import defer, reactor
+from twisted.web import resource
 
+from nevow import inevow, rend, vhost
 from nevow.appserver import NevowSite
 from nevow.athena import LivePage, LiveElement
 from nevow.loaders import xmlfile
@@ -115,12 +119,46 @@ class NotifierController(object):
 
 
 
+class VhostFakeRoot:
+    """
+    I am a wrapper to be used at site root when you want to combine 
+    vhost.VHostMonsterResource with nevow.guard. If you are using guard, you 
+    will pass me a guard.SessionWrapper resource.
+    Also can hide generic resources
+    """
+    implements(inevow.IResource)
+    def __init__(self, wrapped):
+        self.wrapped = wrapped
+    
+    def renderHTTP(self, ctx):
+        return self.wrapped.renderHTTP(ctx)
+        
+    def locateChild(self, ctx, segments):
+        """Returns a VHostMonster if the first segment is "vhost". Otherwise
+        delegates to the wrapped resource."""
+        if segments[0] == "vhost":
+            return vhost.VHostMonsterResource(), segments[1:]
+        else:
+            return self.wrapped.locateChild(ctx, segments) 
+
+
+
 def makeService(config, title, controller):
     s = service.MultiService()
 
     # Set up web service.
     root = NotifierParentPage(controller, config['js'], config['page'])
     root.child_static = File(config['static'].path)
+
+    if config.get('proxied', False):
+        oldRoot = root
+        oldRoot.child_backchannel = oldRoot
+
+        class Resource(rend.Page):
+            def child_(self, ctx):
+                return oldRoot
+
+        root = VhostFakeRoot(oldRoot)
 
     site = NevowSite(root)
 
