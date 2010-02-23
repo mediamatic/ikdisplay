@@ -1,5 +1,6 @@
 # -*- test-case-name: ikdisplay.test.test_xmpp -*-
 
+import random
 import re
 
 from twisted.internet import defer, reactor, task
@@ -27,6 +28,9 @@ TEXTS = {
             'voted': u'stemde op %s',
             'present': u'is bij de ingang gesignaleerd',
             'alien_present': u'is bij de ingang tegengehouden',
+            'interrupt': [u'wil iets zeggen',
+                          u'heeft een opmerking',
+                          u'heeft het woord'],
             'ikcam_picture_singular': u'ging op de foto',
             'ikcam_picture_plural': u'gingen op de foto',
             'ikcam_event': u' bij %s',
@@ -44,6 +48,9 @@ TEXTS = {
             'voted': u'voted for %s',
             'present': u'was at the entrance',
             'alien_present': u'has been detained at the entrance',
+            'interrupt': [u'has something to say',
+                          u'has a remark',
+                          u'is speaking'],
             'ikcam_picture_singular': u'took a self-portrait',
             'ikcam_picture_plural': u'took a group portrait',
             'ikcam_event': u' at %s',
@@ -208,19 +215,18 @@ class PubSubClientFromAggregator(PubSubClient):
 
         return notification
 
-    def format_vote_presence(self, vote):
-        title = self._voteToName(vote)
 
-        if title:
+    def format_vote_presence(self, vote):
+        if unicode(vote.person.title):
             subtitle = self.texts['present']
         else:
-            title = self.texts['alien']
             subtitle = self.texts['alien_present']
 
+        return {"subtitle": subtitle}
 
-        return {"title": title,
-                "subtitle": subtitle,
-                }
+
+    def format_vote_interrupt(self, vote):
+        return {"subtitle": random.choice(self.texts['interrupt'])}
 
 
     def format_status(self, status, nodeInfo):
@@ -368,7 +374,6 @@ class PubSubClientFromAggregator(PubSubClient):
 
 
     def format_regdesk(self, regdesk, nodeInfo):
-        import random
         subtitle = random.choice(self.texts['regdesk'])
 
         if regdesk.person:
