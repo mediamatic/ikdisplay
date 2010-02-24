@@ -194,7 +194,7 @@ class PubSubClientFromAggregator(PubSubClient):
         answer = self._voteToAnswer(vote)
 
         if not title:
-            title = self.texts('alien')
+            title = self.texts['alien']
 
         template = nodeInfo.get('template', self.texts['voted'])
         subtitle = template % answer
