@@ -205,13 +205,19 @@ class PubSubClientFromAggregator(PubSubClient):
                 'icon': unicode(vote.person.image),
                 }
 
-        try:
+        formatter = None
+
+        if 'voteFormatter' in nodeInfo:
+            formatter = nodeInfo['voteFormatter']
+        elif 'voteType' in nodeInfo:
             voteType = nodeInfo['voteType']
-            method = getattr(self, 'format_vote_%s' % voteType)
-        except (AttributeError, KeyError):
-            pass
-        else:
-            notification.update(method(vote))
+            try:
+                formatter = getattr(self, 'format_vote_%s' % voteType)
+            except (AttributeError):
+                pass
+
+        if formatter:
+            notification.update(formatter(vote))
 
         return notification
 
