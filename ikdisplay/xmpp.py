@@ -42,6 +42,7 @@ TEXTS = {
                         u'is er nu ook',
                         u'is net binnengekomen',
                         u'is gearriveerd'],
+            'ikbel': 'sprak net met %s',
             },
         'en': {
             'via': u'via %s',
@@ -63,6 +64,7 @@ TEXTS = {
                         u'received a badge',
                         u'has entered the building',
                         ],
+            'ikbel': 'just talked to %s',
             },
         }
 
@@ -141,6 +143,7 @@ class PubSubClientFromAggregator(PubSubClient):
             log.msg("No formatter has been defined for "
                     "%r at %r (%s). Dropping." %
                     (event.nodeIdentifier, event.sender, nodeType))
+            return
 
         for item in event.items:
             try:
@@ -387,6 +390,16 @@ class PubSubClientFromAggregator(PubSubClient):
             return {'title': unicode(regdesk.person.title),
                     'subtitle': subtitle,
                     'icon': unicode(regdesk.person.image),
+                    }
+
+
+    def format_ikbel(self, element, nodeInfo):
+        subtitle = self.texts["ikbel"] % element.person2.title
+
+        if element.person1:
+            return {'title': unicode(element.person1.title),
+                    'subtitle': subtitle,
+                    'icon': unicode(element.person1.image),
                     }
 
 
