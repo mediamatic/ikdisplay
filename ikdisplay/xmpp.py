@@ -42,7 +42,7 @@ TEXTS = {
                         u'is er nu ook',
                         u'is net binnengekomen',
                         u'is gearriveerd'],
-            'ikbel': 'sprak net met %s',
+            'ikbel': u'sprak net met %s',
             },
         'en': {
             'via': u'via %s',
@@ -64,7 +64,7 @@ TEXTS = {
                         u'received a badge',
                         u'has entered the building',
                         ],
-            'ikbel': 'just talked to %s',
+            'ikbel': u'just talked to %s',
             },
         }
 
