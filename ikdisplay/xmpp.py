@@ -42,8 +42,10 @@ TEXTS = {
                         u'is er nu ook',
                         u'is net binnengekomen',
                         u'is gearriveerd'],
+            'race_finish': u'reed de %s in %s.',
             'ikbel': u'sprak net met %s',
             },
+        
         'en': {
             'via': u'via %s',
             'alien': u'An illegal alien',
@@ -64,6 +66,7 @@ TEXTS = {
                         u'received a badge',
                         u'has entered the building',
                         ],
+            'race_finish': u'rode the %s in %s.',
             'ikbel': u'just talked to %s',
             },
         }
@@ -328,6 +331,15 @@ class PubSubClientFromAggregator(PubSubClient):
                 'icon': u'http://docs.mediamatic.nl/images/ikcam-80x80.png',
                 'picture': unicode(pictureElement),
                 }
+
+
+    def format_race(self, item, nodeInfo):
+
+        subtitle = self.texts['race_finish'] % (unicode(item.event), unicode(item.time))
+
+        return {'title': unicode(item.person.title),
+                'subtitle': subtitle,
+                'icon': unicode(item.person.image)}
 
 
     def process_flickr(self, event, nodeInfo):
