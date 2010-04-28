@@ -42,7 +42,7 @@ TEXTS = {
                         u'is er nu ook',
                         u'is net binnengekomen',
                         u'is gearriveerd'],
-            'race_finish': u'reed de %s in %s.',
+            'race_finish': u'finishte de %s in %s.',
             'ikbel': u'sprak net met %s',
             },
         
@@ -66,7 +66,7 @@ TEXTS = {
                         u'received a badge',
                         u'has entered the building',
                         ],
-            'race_finish': u'rode the %s in %s.',
+            'race_finish': u'finished the %s in %s.',
             'ikbel': u'just talked to %s',
             },
         }
