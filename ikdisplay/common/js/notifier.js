@@ -2,7 +2,7 @@
 // import Divmod.Runtime
 // import Divmod.Defer
 // import JQuery
-// import BackChannel
+// import Back2Channel
 
 backChannel.options.itemAmount = 13;
 Notifier.Notifier = Nevow.Athena.Widget.subclass("Notifier.Notifier");

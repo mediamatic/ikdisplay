@@ -39,7 +39,7 @@ class NotifierParentPage(LivePage):
         self.queue = defer.DeferredQueue()
         self.jsModules.mapping[u'Notifier'] = jsPath.child('notifier.js').path
         self.jsModules.mapping[u'JQuery'] = jsPath.child('jquery.combined.min.js').path
-        self.jsModules.mapping[u'BackChannel'] = jsPath.child('backchannel.js').path
+        self.jsModules.mapping[u'Back2Channel'] = jsPath.child('backchannel.js').path
         self.docFactory = xmlfile(self.pagePath.path)
 
         if hasattr(controller, 'getHistory'):
@@ -129,10 +129,10 @@ class VhostFakeRoot:
     implements(inevow.IResource)
     def __init__(self, wrapped):
         self.wrapped = wrapped
-    
+
     def renderHTTP(self, ctx):
         return self.wrapped.renderHTTP(ctx)
-        
+
     def locateChild(self, ctx, segments):
         """Returns a VHostMonster if the first segment is "vhost". Otherwise
         delegates to the wrapped resource."""
@@ -150,9 +150,12 @@ def makeService(config, title, controller):
     root = NotifierParentPage(controller, config['js'], config['page'])
     root.child_static = File(config['static'].path)
 
-    if config.get('proxied', False):
+    proxyPath = config.get('proxyPath', None)
+    if proxyPath:
         oldRoot = root
-        oldRoot.child_backchannel = oldRoot
+	if oldRoot.children is None:
+            oldRoot.children = {}
+        oldRoot.children[proxyPath] = oldRoot
 
         class Resource(rend.Page):
             def child_(self, ctx):
