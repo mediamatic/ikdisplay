@@ -649,7 +649,9 @@ def makeService(config):
     if IQ.timeout is None:
         IQ.timeout = 30
 
-    xmppService = XMPPClient(config['jid'], config['secret'])
+    xmppService = XMPPClient(config['jid'], config['secret'],
+                             config.get('xmpp-host'),
+                             config.get('xmpp-port', 5222))
     if config['verbose']:
         xmppService.logTraffic = True
 

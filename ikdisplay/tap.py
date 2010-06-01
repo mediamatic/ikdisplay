@@ -12,6 +12,7 @@ from anymeta import manhole
 from ikdisplay import notifier, xmpp
 
 STYLES = ('beamer', 'screen', 'screen_ikcam')
+
 class Options(usage.Options):
 
     optParameters = [
@@ -29,6 +30,11 @@ class Options(usage.Options):
             'Login password'),
         ('manhole-port', None, '2226',
             'Manhole SSH service port'),
+        ('xmpp-host', None, None,
+            'XMPP host to connect to (instead of using SRV)'),
+        ('xmpp-port', None, 5222,
+            'XMPP port to connect to (instead of using SRV)',
+            usage.portCoerce),
     ]
 
     optFlags = [
@@ -42,6 +48,7 @@ class Options(usage.Options):
 
         if self['style'] not in STYLES:
             raise usage.UsageError("Style should be one of %r" % STYLES)
+
 
 
 def makeService(config):
