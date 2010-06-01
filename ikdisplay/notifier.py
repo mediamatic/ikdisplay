@@ -2,7 +2,6 @@ from zope.interface import implements
 
 from twisted.application import service, strports
 from twisted.internet import defer, reactor
-from twisted.web import resource
 
 from nevow import inevow, rend, vhost
 from nevow.appserver import NevowSite
