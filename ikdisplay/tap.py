@@ -11,7 +11,7 @@ from anymeta import manhole
 
 from ikdisplay import notifier, xmpp
 
-STYLES = ('beamer', 'screen', 'screen_ikcam')
+STYLES = ('beamer', 'beamer_all', 'screen', 'screen_ikcam')
 
 class Options(usage.Options):
 
