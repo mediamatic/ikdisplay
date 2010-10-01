@@ -40,7 +40,7 @@ class FeedsPage (ConfigurationPage):
 
 class FindPage (ConfigurationPage):
     """
-    Page for /feed/:id
+    Page for /xx/:id
     """
 
     def __init__(self, store, pagecls):
@@ -52,7 +52,6 @@ class FindPage (ConfigurationPage):
             return rend.NotFound
 
         # lookup feed id in self.store
-        print self.store
         if segments[0] == 'add':
             item = None
         else:
@@ -65,12 +64,42 @@ class FindPage (ConfigurationPage):
         return page, ()
 
 
+class FeedFindPage (ConfigurationPage):
+    """
+    Page for /feed/:feed and /feed/:feed/:source
+    """
+
+    def __init__(self, store, pagecls):
+        ConfigurationPage.__init__(self, store)
+        self.pagecls = pagecls
+
+    def locateChild(self, ctx, segments):
+        if len(segments) < 1 or len(segments) > 2:
+            return rend.NotFound
+
+        if len(segments) == 1 and segments[0] == 'add':
+            return FeedPage(self.store, None), ()
+
+        r = list(self.store.query(self.pagecls.itemcls, self.pagecls.itemcls.storeID == segments[0]))
+        if len(r) == 0:
+            return rend.NotFound
+        item = r[0]
+        if len(segments) == 1:
+            return FeedPage(self.store, item), ()
+
+        # feed + source (index)
+        index = int(segments[1])
+        src = list(item.powerupsFor(source.ISource))[index]
+        return SourcePage(self.store, src), ()
+
+
 class FeedPage (ConfigurationPage):
     itemcls = Feed
 
     def __init__(self, store, item):
         ConfigurationPage.__init__(self, store)
         self.item = item
+        self.sources = list(self.item.powerupsFor(source.ISource))
 
     def render_pageTitle(self, ctx):
         return "Feed " + self.item.title
@@ -79,10 +108,27 @@ class FeedPage (ConfigurationPage):
         return loaders.xmlfile("ikdisplay/web/static/feed.part.html")
 
     def data_sources(self, ctx, r):
-        return self.item.powerupsFor(source.ISource)
+        return self.sources
 
-    def render_sourceForm(self, source):
-        return source.getForm()
+    def render_sourceLink(self, source):
+        idx = self.sources.index(source)
+        return T.a(href="/feed/%d/%d" % (self.item.storeID, idx))[ source.renderTitle() ]
+
+
+class SourcePage (ConfigurationPage):
+
+    def __init__(self, store, item):
+        ConfigurationPage.__init__(self, store)
+        self.item = item
+
+    def render_pageTitle(self, ctx):
+        return "Source " + str(self.item.__class__)
+
+    def render_pageContents(self, ctx):
+        return loaders.xmlfile("ikdisplay/web/static/source.part.html")
+
+    def render_sourceForm(self, ctx):
+        return self.item.getForm()
 
 
 
@@ -90,7 +136,8 @@ from axiom.store import Store
 store = Store("/tmp/foo")
 
 rootResource = FeedsPage(store)
-rootResource.putChild('feed', FindPage(store, FeedPage))
+rootResource.putChild('feed', FeedFindPage(store, FeedPage))
+#rootResource.putChild('source', FindPage(store, SourcePage))
 
 application = service.Application("Feeds configuration")
 strports.service("8080", appserver.NevowSite(rootResource)).setServiceParent(application)

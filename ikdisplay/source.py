@@ -2,6 +2,8 @@ from zope.interface import Interface, implements
 
 from twisted.python import log, reflect
 
+from nevow import tags
+
 from axiom import attributes, item
 
 class ISource(Interface):
@@ -23,7 +25,19 @@ class SourceMixin(object):
         """
         Render the configuration form for this source.
         """
-        return "<!-- fixme -->"
+        return tags.strong()["Fixme: getForm()"]
+
+    def renderTitle(self):
+        """
+        Renders a title for display in the configuration.
+        """
+        return tags.strong()["Fixme: renderTitle()"]
+
+    def renderForm(self):
+        """
+        Renders the configuration form for display in the configuration.
+        """
+        return tags.strong()["Fixme: renderForm()"]
 
 
 class IPubSubEventProcessor(Interface):
@@ -126,6 +140,8 @@ class SimpleSource(PubSubSourceMixin, item.Item):
 
         return notification
 
+    def renderTitle(self):
+        return "Simple source (via: %s)" % self.via
 
 
 class VoteSource(PubSubSourceMixin, item.Item):
@@ -143,6 +159,9 @@ class VoteSource(PubSubSourceMixin, item.Item):
             'via': 'ikPoll',
             'voted': u'voted for %s',
             }
+
+    def renderTitle(self):
+        return "Vote on %s" % self.question.title
 
     def _voteToName(self, vote):
         title = unicode(vote.person.title)
@@ -196,12 +215,18 @@ class PresenceSource(SourceMixin, item.Item):
     via = attributes.text()
     question = attributes.reference(allowNone=False)
 
+    def renderTitle(self):
+        return "Presence source, question: %s" % self.question.title
+
 
 
 class IkMicSource(SourceMixin, item.Item):
     feed = attributes.reference()
     via = attributes.text()
     question = attributes.reference(allowNone=False)
+
+    def renderTitle(self):
+        return "IkMic source, question: %s" % self.question.title
 
 
 
@@ -218,6 +243,13 @@ class StatusSource(SourceMixin, item.Item):
     Reference to the thing the statuses are from.
     """)
 
+    def renderTitle(self):
+        s = "Status updates from " + self.site.title
+        if self.event:
+            s += " (event: %s)" % self.event.title
+        if self.user:
+            s += " (user: %s)" % self.event.title
+        return s
 
 
 class TwitterSource(SourceMixin, item.Item):
@@ -225,6 +257,8 @@ class TwitterSource(SourceMixin, item.Item):
     terms = attributes.textlist()
     userIDs = attributes.textlist()
 
+    def renderTitle(self):
+        return "Twitter"
 
 
 
@@ -238,6 +272,13 @@ class IkCamSource(SourceMixin, item.Item):
     Reference to the creator of the pictures.
     """)
 
+    def renderTitle(self):
+        s = "IkCam pictures"
+        if self.event:
+            s += " for the event " + self.event.title
+        if self.creator:
+            s += " created by " + self.creator.title
+        return s
 
 
 class RegDeskSource(SourceMixin, item.Item):
@@ -247,6 +288,9 @@ class RegDeskSource(SourceMixin, item.Item):
     Reference to the event.
     """)
 
+    def renderTitle(self):
+        return "Registration desk for " + self.event.title
+
 
 
 class RaceSource(SourceMixin, item.Item):
@@ -255,6 +299,9 @@ class RaceSource(SourceMixin, item.Item):
     race = attributes.reference("""
     Reference to the thing representing the race.
     """)
+
+    def renderTitle(self):
+        return "Race events for the race " + self.race.title
 
 
 
