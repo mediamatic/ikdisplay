@@ -19,9 +19,11 @@ class SourceMixin(object):
         other.powerUp(self, ISource)
 
 
-    def itemReceived(event):
-        pass
-
+    def getForm(self):
+        """
+        Render the configuration form for this source.
+        """
+        return "<!-- fixme -->"
 
 
 class IPubSubEventProcessor(Interface):

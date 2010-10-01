@@ -7,6 +7,8 @@ from twisted.words.protocols.jabber.jid import JID
 
 from axiom import item, attributes
 
+from ikdisplay.source import ISource
+
 class JIDAttribute(attributes.text):
     """
     An in-database representation of a JID.
@@ -48,10 +50,6 @@ class Feed(item.Item):
     handle = attributes.text(allowNone=False)
     title = attributes.text()
     language = attributes.text(default=u'en')
-
-    def printSources(self):
-        print list(self.powerupsFor(ISource))
-
 
     def processNotifications(self, notifications):
         print repr(notifications)
