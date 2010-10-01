@@ -159,10 +159,11 @@ class AddSourceHandler (rend.Page) :
     def renderHTTP(self, r):
         feed = self.store.getItemByID(int(r.arg("storeID")))
         cls = source.allSources[int(r.arg("sourceIndex"))]
-        src = cls(store=self.store, feed=feed)
+        src = cls(store=self.store)
+        src.installOn(feed)
 
-        idx = feed.getSource().find(src)
-        url = "/feed/%d/%d" % (r.arg("storeID"), idx)
+        idx = feed.getSources().index(src)
+        url = "/feed/%s/%d" % (r.arg("storeID"), idx)
         return redirectTo(url, inevow.IRequest(r))
 
 

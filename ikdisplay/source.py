@@ -116,7 +116,7 @@ class PubSubSourceMixin(SourceMixin):
 
 class SimpleSource(PubSubSourceMixin, item.Item):
     title = "Simple source"
-    
+
     feed = attributes.reference()
     via = attributes.text()
     subscription = attributes.reference()
@@ -237,7 +237,7 @@ class PresenceSource(VoteSourceMixin, item.Item):
 
 
 class IkMicSource(VoteSourceMixin, item.Item):
-	title = "IkMic"
+    title = "IkMic"
 
     feed = attributes.reference()
     via = attributes.text()
@@ -294,7 +294,7 @@ class StatusSource(SourceMixin, item.Item):
 
 
     def renderTitle(self):
-        s = "%s from %s" % (self.title, self.site.title)
+        s = "%s from %s" % (self.title, (self.site and self.site.title) or "?")
         if self.event:
             s += " (event: %s)" % self.event.title
         if self.user:
