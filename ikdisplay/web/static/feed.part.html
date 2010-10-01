@@ -4,4 +4,11 @@
             <n:invisible n:render="sourceLink" />
         </li>
     </ul>
+    <form method="POST" action="/addSource">
+        <n:invisible n:render="storeIDinput" n:data="currentItem" />
+        <select name="sourceIndex" action="/addSource">
+            <n:invisible n:render="sourceTypesOptions" />
+        </select>
+        <button>Add new source</button>
+    </form>
 </div>

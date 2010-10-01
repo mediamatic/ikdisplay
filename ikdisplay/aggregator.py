@@ -54,6 +54,10 @@ class Feed(item.Item):
     def processNotifications(self, notifications):
         print repr(notifications)
 
+    def getSources(self):
+        """ The list of sources for this feed. """
+        return list(self.powerupsFor(ISource))
+
 
 class Site(item.Item):
     title = attributes.text()

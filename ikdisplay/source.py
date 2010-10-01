@@ -16,6 +16,8 @@ class ISource(Interface):
 class SourceMixin(object):
     implements(ISource)
 
+    title = "Unknown source"
+
     def installOn(self, other):
         self.feed = other
         other.powerUp(self, ISource)
@@ -31,7 +33,7 @@ class SourceMixin(object):
         """
         Renders a title for display in the configuration.
         """
-        return tags.strong()["Fixme: renderTitle()"]
+        return self.title
 
     def renderForm(self):
         """
@@ -123,6 +125,8 @@ class PubSubSourceMixin(SourceMixin):
 
 
 class SimpleSource(PubSubSourceMixin, item.Item):
+    title = "Simple source"
+    
     feed = attributes.reference()
     via = attributes.text()
     subscription = attributes.reference()
@@ -141,10 +145,12 @@ class SimpleSource(PubSubSourceMixin, item.Item):
         return notification
 
     def renderTitle(self):
-        return "Simple source (via: %s)" % self.via
+        return "%s (via: %s)" % (self.title, self.via)
 
 
 class VoteSource(PubSubSourceMixin, item.Item):
+    title = "Vote"
+
     feed = attributes.reference()
     via = attributes.text()
     question = attributes.reference(allowNone=False)
@@ -161,7 +167,7 @@ class VoteSource(PubSubSourceMixin, item.Item):
             }
 
     def renderTitle(self):
-        return "Vote on %s" % self.question.title
+        return "%s on %s" % (self.title, self.question.title)
 
     def _voteToName(self, vote):
         title = unicode(vote.person.title)
@@ -211,26 +217,32 @@ class VoteSource(PubSubSourceMixin, item.Item):
 
 
 class PresenceSource(SourceMixin, item.Item):
+    title = "Presence"
+
     feed = attributes.reference()
     via = attributes.text()
     question = attributes.reference(allowNone=False)
 
     def renderTitle(self):
-        return "Presence source, question: %s" % self.question.title
+        return "%s, question: %s" % (self.title, self.question.title)
 
 
 
 class IkMicSource(SourceMixin, item.Item):
+    title = "IkMic"
+
     feed = attributes.reference()
     via = attributes.text()
     question = attributes.reference(allowNone=False)
 
     def renderTitle(self):
-        return "IkMic source, question: %s" % self.question.title
+        return "%s, question: %s" % (self.title, self.question.title)
 
 
 
 class StatusSource(SourceMixin, item.Item):
+    title = "Status updates"
+
     feed = attributes.reference()
     via = attributes.text()
     site = attributes.reference("""
@@ -244,7 +256,7 @@ class StatusSource(SourceMixin, item.Item):
     """)
 
     def renderTitle(self):
-        s = "Status updates from " + self.site.title
+        s = "%s from %s" % (self.title, self.site.title)
         if self.event:
             s += " (event: %s)" % self.event.title
         if self.user:
@@ -253,16 +265,17 @@ class StatusSource(SourceMixin, item.Item):
 
 
 class TwitterSource(SourceMixin, item.Item):
+    title = "Twitter"
+
     feed = attributes.reference()
     terms = attributes.textlist()
     userIDs = attributes.textlist()
 
-    def renderTitle(self):
-        return "Twitter"
-
 
 
 class IkCamSource(SourceMixin, item.Item):
+    title = "IkCam pictures"
+
     feed = attributes.reference()
     via = attributes.text()
     event = attributes.reference("""
@@ -273,7 +286,7 @@ class IkCamSource(SourceMixin, item.Item):
     """)
 
     def renderTitle(self):
-        s = "IkCam pictures"
+        s = self.title
         if self.event:
             s += " for the event " + self.event.title
         if self.creator:
@@ -282,6 +295,8 @@ class IkCamSource(SourceMixin, item.Item):
 
 
 class RegDeskSource(SourceMixin, item.Item):
+    title = "Registration desk"
+
     feed = attributes.reference()
     via = attributes.text()
     event = attributes.reference("""
@@ -289,11 +304,13 @@ class RegDeskSource(SourceMixin, item.Item):
     """)
 
     def renderTitle(self):
-        return "Registration desk for " + self.event.title
+        return "%s for %s" % (self.title, self.event.title)
 
 
 
 class RaceSource(SourceMixin, item.Item):
+    title = "Race events"
+
     feed = attributes.reference()
     via = attributes.text()
     race = attributes.reference("""
@@ -301,7 +318,21 @@ class RaceSource(SourceMixin, item.Item):
     """)
 
     def renderTitle(self):
-        return "Race events for the race " + self.race.title
+        return "%s for the race %s" % (self.title, self.race.title)
 
 
 
+allSources = [
+    SimpleSource,
+    VoteSource,
+    PresenceSource,
+    IkMicSource,
+    StatusSource,
+    TwitterSource,
+    IkCamSource,
+    RegDeskSource,
+    RaceSource
+    ]
+"""
+The global list of all sources.
+"""
