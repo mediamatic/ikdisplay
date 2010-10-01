@@ -35,11 +35,23 @@ class PubSubSourceMixinTest(unittest.TestCase):
         self.assertEquals(0, len(notifications))
 
 
+def formatPayload(src, xml):
+    """
+    Hook up a newly created source to a feed and call format_payload.
+    """
+    payload = parseXml(xml)
+
+    feed = aggregator.Feed(handle=u'mediamatic', language=u'en')
+    src.activate()
+    src.feed = feed
+
+    return src.format_payload(payload)
+
 
 class VoteSourceTest(unittest.TestCase):
 
     def test_formatPayload(self):
-        xml= """
+        xml = """
 <rsp>
   <vote>
     <id>173603</id>
@@ -76,15 +88,10 @@ class VoteSourceTest(unittest.TestCase):
 </rsp>
         """
 
-        payload = parseXml(xml)
-
-        feed = aggregator.Feed(handle=u'mediamatic', language=u'en')
         thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
         src = source.VoteSource(question=thing)
-        src.activate()
-        src.feed = feed
+        notification = formatPayload(src, xml)
 
-        notification = src.format_payload(payload)
         self.assertEquals(u'Fred Pook',
                           notification['title'])
         self.assertEquals(u'voted for Shadow Search Platform',
@@ -95,7 +102,7 @@ class VoteSourceTest(unittest.TestCase):
 class PresenceSourceTest(unittest.TestCase):
 
     def test_formatPayload(self):
-        xml= """
+        xml = """
 <rsp>
   <vote>
     <id>173603</id>
@@ -132,15 +139,10 @@ class PresenceSourceTest(unittest.TestCase):
 </rsp>
         """
 
-        payload = parseXml(xml)
-
-        feed = aggregator.Feed(handle=u'mediamatic', language=u'en')
         thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
         src = source.PresenceSource(question=thing)
-        src.activate()
-        src.feed = feed
+        notification = formatPayload(src, xml)
 
-        notification = src.format_payload(payload)
         self.assertEquals(u'Fred Pook',
                           notification['title'])
         self.assertEquals(u'was at the entrance',
@@ -150,7 +152,7 @@ class PresenceSourceTest(unittest.TestCase):
 class IkMicSourceTest(unittest.TestCase):
 
     def test_formatPayload(self):
-        xml= """
+        xml = """
 <rsp>
   <vote>
     <id>173603</id>
@@ -187,17 +189,70 @@ class IkMicSourceTest(unittest.TestCase):
 </rsp>
         """
 
-        payload = parseXml(xml)
-
-        feed = aggregator.Feed(handle=u'mediamatic', language=u'en')
         thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
         src = source.IkMicSource(question=thing)
-        src.activate()
-        src.feed = feed
+        notification = formatPayload(src, xml)
 
-        notification = src.format_payload(payload)
         self.assertEquals(u'Fred Pook',
                           notification['title'])
         self.assertIn(notification['subtitle'],
                       source.IkMicSource.TEXTS_EN['interrupt'])
 
+
+class StatusSourceTest(unittest.TestCase):
+
+    def formatPayload(self, xml):
+        thing = aggregator.Site(uri=u'http://www.mediamatic.net/')
+        src = source.StatusSource(site=thing)
+        return formatPayload(src, xml)
+
+
+    def test_formatPayload(self):
+        xml = """
+<rsp>
+  <status>roze koeken ftw</status>
+  <person>
+    <title>Arjan Scherpenisse</title>
+    <image>http://fast.mediamatic.nl/f/sjnh/image/530/27597-480-480-crop.jpg</image>
+    <uri>http://www.mediamatic.net/id/22661</uri>
+  </person>
+</rsp>
+        """
+
+        notification = self.formatPayload(xml)
+        self.assertEquals(u'Arjan Scherpenisse',
+                          notification['title'])
+        self.assertEquals(u'roze koeken ftw',
+                          notification['subtitle'])
+
+
+    def test_formatPayloadNoStatus(self):
+        xml = """
+<rsp>
+  <status></status>
+  <person>
+    <title>Arjan Scherpenisse</title>
+    <image>http://fast.mediamatic.nl/f/sjnh/image/530/27597-480-480-crop.jpg</image>
+    <uri>http://www.mediamatic.net/id/22661</uri>
+  </person>
+</rsp>
+        """
+
+        notification = self.formatPayload(xml)
+        self.assertIdentical(None, notification)
+
+
+    def test_formatPayloadStatusEmpty(self):
+        xml = """
+<rsp>
+  <status>is</status>
+  <person>
+    <title>Arjan Scherpenisse</title>
+    <image>http://fast.mediamatic.nl/f/sjnh/image/530/27597-480-480-crop.jpg</image>
+    <uri>http://www.mediamatic.net/id/22661</uri>
+  </person>
+</rsp>
+        """
+
+        notification = self.formatPayload(xml)
+        self.assertIdentical(None, notification)
