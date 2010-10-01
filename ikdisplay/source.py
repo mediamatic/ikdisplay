@@ -1,3 +1,4 @@
+import random
 from zope.interface import Interface, implements
 
 from twisted.python import log, reflect
@@ -66,29 +67,18 @@ class PubSubSourceMixin(SourceMixin):
             'alien': u'An illegal alien',
             }
 
+    texts = None
+
     pubsubClient = None
 
     def activate(self):
-        self.texts = {}
+        if self.texts is None:
+            self.__class__.texts = {}
 
-        for language in ('nl', 'en'):
-            texts = self.texts[language] = {}
-            attr = 'TEXTS_' + language.upper()
-            reflect.accumulateClassDict(self.__class__, attr, texts)
-
-
-#    def startService(self):
-#        service.Service.startService(self)
-#        self.pubsubClient.addObserver(self.itemsReceived,
-#                                      self.config['service'],
-#                                      self.config['node'])
-#
-#
-#    def stopService(self):
-#        service.Service.stopService(self)
-#        self.pubsubClient.removeObserver(self.itemsReceived,
-#                                         self.config['service'],
-#                                         self.config['node'])
+            for language in ('nl', 'en'):
+                texts = self.__class__.texts[language] = {}
+                attr = 'TEXTS_' + language.upper()
+                reflect.accumulateClassDict(self.__class__, attr, texts)
 
 
     def itemsReceived(self, event):
@@ -148,15 +138,8 @@ class SimpleSource(PubSubSourceMixin, item.Item):
         return "%s (via: %s)" % (self.title, self.via)
 
 
-class VoteSource(PubSubSourceMixin, item.Item):
-    title = "Vote"
 
-    feed = attributes.reference()
-    via = attributes.text()
-    question = attributes.reference(allowNone=False)
-    template = attributes.text()
-    texts = attributes.inmemory()
-
+class VoteSourceMixin(PubSubSourceMixin):
     TEXTS_NL = {
             'via': 'ikPoll',
             'voted': u'stemde op %s',
@@ -195,7 +178,7 @@ class VoteSource(PubSubSourceMixin, item.Item):
         if not title:
             title = self.texts['alien']
 
-        template = self.template or self.texts[self.feed.language]['voted']
+        template = getattr(self, 'template', None) or self.texts[self.feed.language]['voted']
         subtitle = template % answer
 
         notification = {
@@ -216,27 +199,72 @@ class VoteSource(PubSubSourceMixin, item.Item):
         return {}
 
 
-class PresenceSource(SourceMixin, item.Item):
-    title = "Presence"
+class VoteSource(VoteSourceMixin, item.Item):
+    title = "Vote"
 
     feed = attributes.reference()
     via = attributes.text()
     question = attributes.reference(allowNone=False)
+    template = attributes.text()
 
     def renderTitle(self):
         return "%s, question: %s" % (self.title, self.question.title)
 
 
+class PresenceSource(VoteSourceMixin, item.Item):
+    feed = attributes.reference()
+    via = attributes.text()
+    question = attributes.reference(allowNone=False)
 
-class IkMicSource(SourceMixin, item.Item):
-    title = "IkMic"
+    TEXTS_NL = {
+            'present': u'is bij de ingang gesignaleerd',
+            'alien_present': u'is bij de ingang tegengehouden',
+            }
+    TEXTS_EN = {
+            'present': u'was at the entrance',
+            'alien_present': u'has been detained at the entrance',
+            }
+
+    def format_vote(self, payload):
+        texts = self.texts[self.feed.language]
+        if unicode(payload.person.title):
+            subtitle = texts['present']
+        else:
+            subtitle = texts['alien_present']
+
+        return {"subtitle": subtitle}
+
+
+
+class IkMicSource(VoteSourceMixin, item.Item):
+	title = "IkMic"
 
     feed = attributes.reference()
     via = attributes.text()
     question = attributes.reference(allowNone=False)
 
+    TEXTS_NL = {
+            'via': 'ikMic',
+            'interrupt': [u'wil iets zeggen',
+                          u'heeft een opmerking',
+                          u'interrumpeert',
+                          u'onderbreekt de discussie'],
+            }
+    TEXTS_EN = {
+            'via': 'ikMic',
+            'interrupt': [u'has something to say',
+                          u'has a remark',
+                          u'is speaking'],
+            }
+
+    def format_vote(self, payload):
+        choices = self.texts[self.feed.language]['interrupt']
+        return {"subtitle": random.choice(choices)}
+
+
     def renderTitle(self):
         return "%s, question: %s" % (self.title, self.question.title)
+
 
 
 
@@ -255,6 +283,16 @@ class StatusSource(SourceMixin, item.Item):
     Reference to the thing the statuses are from.
     """)
 
+    def format_payload(self, payload):
+        text = unicode(payload.status).strip()
+        if not text or text == 'is':
+            return None
+
+        return {'title': unicode(payload.person.title),
+                'subtitle': text,
+                'icon': unicode(payload.person.image)}
+
+
     def renderTitle(self):
         s = "%s from %s" % (self.title, self.site.title)
         if self.event:
@@ -271,6 +309,28 @@ class TwitterSource(SourceMixin, item.Item):
     terms = attributes.textlist()
     userIDs = attributes.textlist()
 
+    def format_payload(self, payload):
+        text = unicode(payload.text)
+
+        if ('terms' not in self.config and
+            'userIDs' not in self.config):
+            match = True
+        else:
+            match = False
+
+            for term in self.config.get('terms', ()):
+                if re.search(term, text, re.IGNORECASE):
+                    match = True
+
+            if 'userIDs' in self.config:
+                userID = unicode(payload.user.id)
+                match = match or (userID in self.config['userIDs'])
+
+        if match:
+            return {'title': unicode(payload.user.screen_name),
+                    'subtitle': text,
+                    'icon': unicode(payload.user.profile_image_url),
+                    }
 
 
 class IkCamSource(SourceMixin, item.Item):
@@ -284,6 +344,44 @@ class IkCamSource(SourceMixin, item.Item):
     creator = attributes.reference("""
     Reference to the creator of the pictures.
     """)
+
+    TEXTS_NL = {
+            'via': 'ikCam',
+            'ikcam_picture_singular': u'ging op de foto',
+            'ikcam_picture_plural': u'gingen op de foto',
+            'ikcam_event': u' bij %s',
+            }
+    TEXTS_EN = {
+            'via': 'ikCam',
+            'ikcam_picture_singular': u'took a self-portrait',
+            'ikcam_picture_plural': u'took a group portrait',
+            'ikcam_event': u' at %s',
+            }
+
+    def format_payload(self, payload):
+
+        participants = [unicode(element)
+                        for element in payload.participants.elements()
+                        if element.name == 'participant']
+
+        if not participants:
+            return
+        elif len(participants) == 1:
+            subtitle = self.texts['ikcam_picture_singular']
+        else:
+            subtitle = self.texts['ikcam_picture_plural']
+
+        if payload.event:
+            subtitle += self.texts['ikcam_event'] % unicode(payload.event.title)
+
+        pictureElement = payload.picture.attachment_uri or payload.picture.rsc_uri
+
+        return {'title': u', '.join(participants),
+                'subtitle': subtitle,
+                'icon': u'http://docs.mediamatic.nl/images/ikcam-80x80.png',
+                'picture': unicode(pictureElement),
+                }
+
 
     def renderTitle(self):
         s = self.title
@@ -303,6 +401,31 @@ class RegDeskSource(SourceMixin, item.Item):
     Reference to the event.
     """)
 
+    TEXTS_NL = {
+            'via': 'Registratiebalie',
+            'regdesk': [u'is binnen',
+                        u'is er nu ook',
+                        u'is net binnengekomen',
+                        u'is gearriveerd'],
+            }
+    TEXTS_EN = {
+            'via': 'Registration Desk',
+            'regdesk': [u'just arrived',
+                        u'showed up at the entrance',
+                        u'received a badge',
+                        u'has entered the building',
+                        ],
+            }
+
+    def format_payload(self, payload):
+        subtitle = random.choice(self.texts['regdesk'])
+
+        if payload.person:
+            return {'title': unicode(payload.person.title),
+                    'subtitle': subtitle,
+                    'icon': unicode(payload.person.image),
+                    }
+
     def renderTitle(self):
         return "%s for %s" % (self.title, self.event.title)
 
@@ -316,6 +439,15 @@ class RaceSource(SourceMixin, item.Item):
     race = attributes.reference("""
     Reference to the thing representing the race.
     """)
+
+    TEXTS_NL = {
+            'via': 'Alleycat',
+            'race_finish': u'finishte de %s in %s.',
+            }
+    TEXTS_EN = {
+            'via': 'Alleycat',
+            'race_finish': u'finished the %s in %s.',
+            }
 
     def renderTitle(self):
         return "%s for the race %s" % (self.title, self.race.title)

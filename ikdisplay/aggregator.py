@@ -52,7 +52,7 @@ class Feed(item.Item):
     language = attributes.text(default=u'en')
 
     def processNotifications(self, notifications):
-        print repr(notifications)
+        pass
 
     def getSources(self):
         """ The list of sources for this feed. """
