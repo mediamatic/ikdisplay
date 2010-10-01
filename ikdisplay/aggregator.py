@@ -49,12 +49,8 @@ class Feed(item.Item):
     title = attributes.text()
     language = attributes.text(default=u'en')
 
-    def printSources(self):
-        print list(self.powerupsFor(ISource))
-
-
     def processNotifications(self, notifications):
-        print repr(notifications)
+        pass
 
 
 class Site(item.Item):
