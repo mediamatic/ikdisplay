@@ -100,6 +100,7 @@ dojo.ready(function()
                           });
             },
             removeItem: function(id) {
+                if (!confirm('Are you sure?')) return;
                 self.doAPI("removeItem", {id: id})
                     .then(function(r) {
                               // Refresh
