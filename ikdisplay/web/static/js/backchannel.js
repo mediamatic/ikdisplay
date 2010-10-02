@@ -60,20 +60,12 @@ dojo.ready(function()
          */
         self.controller = {
             feed: function(id) {
-                self.dispatch.last = [self.controller.feed, [id]];
                 return renderTemplateWithData("feed.tpl", "feed", {id: id});
             },
 
             feeds: function() {
-                self.dispatch.last = [self.controller.feeds, []];
                 return renderTemplateWithData("feeds.tpl", "feeds");
-            },
-
-            source: function(id) {
-                self.dispatch.last = [self.controller.source, [id]];
-                return renderTemplateWithData("source.tpl", "getItem", {id: id});
             }
-
         };
 
 
@@ -145,6 +137,7 @@ dojo.ready(function()
             if (!dispatch) {
                 dispatch = self.controller.feeds;
             }
+            self.dispatch.last = [dispatch, parts];
             return dispatch.apply(this, parts);
         };
         self.reload = function() {
