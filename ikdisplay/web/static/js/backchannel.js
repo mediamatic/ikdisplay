@@ -65,6 +65,10 @@ dojo.ready(function()
 
             feeds: function() {
                 return renderTemplateWithData("feeds.tpl", "feeds");
+            },
+
+            sites: function() {
+                return renderTemplateWithData("sites.tpl", "sites");
             }
         };
 
@@ -89,6 +93,12 @@ dojo.ready(function()
                                   .then(function() {
                                             self.actions.editItem(r._id, 'Edit feed', 'Feed');
                                         });
+                          });
+            },
+            addSite: function() {
+                self.doAPI("addSite")
+                    .then(function(r) {
+                              self.actions.editItem(r._id, 'Edit site', 'Site');
                           });
             },
             removeItem: function(id) {

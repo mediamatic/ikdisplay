@@ -1,3 +1,5 @@
+<h1>Feeds</h1>
+
 <table border="1">
     <tr>
         <th>Feed name</th>

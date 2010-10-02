@@ -65,6 +65,11 @@ class APIResource(resource.Resource):
         return resource.NoResource()
 
 
+    def api_sites(self, request):
+        """ Get the list of all sites. """
+        return self.store.query(Site)
+
+
     def api_feeds(self, request):
         """ Get the list of all feeds. """
         return self.store.query(Feed)
@@ -128,6 +133,12 @@ class APIResource(resource.Resource):
         """ Adds a new, unnamed feed. Returns the feed item. """
         feed = Feed(store=self.store, title=u"Untitled feed", handle=u"handle", language=u"en")
         return feed
+
+
+    def api_addSite(self, request):
+        """ Adds a new, unnamed site. Returns the feed item. """
+        site = Site(store=self.store, title=u"Untitled site", uri=u"http://...")
+        return site
 
 
 st = store.Store("/tmp/foo")

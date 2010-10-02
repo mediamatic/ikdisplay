@@ -1,8 +1,4 @@
-<a href="#feeds">terug</a>
-
 <h1>{title}</h1>
-<a href="javascript:;" onclick="BackChannel.actions.editItem({_id}, 'Edit feed', 'Feed')">edit</a>
-
 
 <table border="1">
     <tr>
@@ -31,3 +27,7 @@
         {.end}
     </select>
 </p>
+<p>
+    <button dojoType="dijit.form.Button" onClick="BackChannel.actions.editItem({_id}, 'Edit feed', 'Feed')">Edit feed</button>
+</p>
+
