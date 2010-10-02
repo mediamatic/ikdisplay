@@ -88,7 +88,10 @@ dojo.ready(function()
                 self.doAPI("addSource", {id: feedId, idx: idx})
                     .then(function(r) {
                               // Refresh
-                              self.reload();
+                              self.reload()
+                                  .then(function() {
+                                            self.actions.editItem(r._id, 'Edit '+r._type, r._class);
+                                        });
                           });
             },
             addFeed: function() {
