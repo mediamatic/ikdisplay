@@ -4,7 +4,7 @@ from twisted.web import resource, static, server
 from ikdisplay.aggregator import Feed, Site, Thing
 from ikdisplay import source
 import json
-from axiom import store, item
+from axiom import store, item, attributes
 
 class Encoder(json.JSONEncoder):
     def default(self, obj):
@@ -15,6 +15,7 @@ class Encoder(json.JSONEncoder):
             val = dict([('_id', obj.storeID), ('_class', str(obj.__class__.__name__))] + [(k, getattr(obj, k)) for k, _ in schema])
             if source.ISource.providedBy(obj):
                 val['_title'] = obj.renderTitle()
+                val['_type'] = obj.title
             return val
         return json.JSONEncoder.default(self, obj)
 
@@ -76,6 +77,7 @@ class APIResource(resource.Resource):
             raise NotFound(id)
         result = Encoder().default(feed)
         result['sources'] = feed.getSources()
+        result['allSources'] = [(i, source.allSources[i].title) for i in range(len(source.allSources))]
         return result
 
 
@@ -97,8 +99,33 @@ class APIResource(resource.Resource):
         for k in args.keys():
             if k not in schema:
                 raise APIError("Invalid update attribute: " + k)
-            setattr(item, k, unicode(args[k][0]))
+            value = unicode(args[k][0])
+            if isinstance(schema[k], attributes.textlist):
+                value = [s.strip() for s in value.strip().split("\n") if s.strip() != ""]
+            setattr(item, k, value)
         return item
+
+
+    def api_removeItem(self, request):
+        """ Removes the item {id} from the database. """
+        item = self.api_getItem(request)
+        item.deleteFromStore(True)
+        return {"status": "deleted"}
+
+
+    def api_addSource(self, request):
+        """ Adds the {n}th source to the feed specified by {id}. Returns the new source. """
+        feed = self.api_getItem(request)
+        cls = source.allSources[int(request.args["idx"][0])]
+        src = cls(store=self.store)
+        src.installOn(feed)
+        return src
+
+
+    def api_addFeed(self, request):
+        """ Adds a new, unnamed feed. Returns the feed item. """
+        feed = Feed(store=self.store, title=u"Untitled feed", handle=u"handle", language=u"en")
+        return feed
 
 
 st = store.Store("/tmp/foo")

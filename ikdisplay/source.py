@@ -1,4 +1,6 @@
+import re
 import random
+
 from zope.interface import Interface, implements
 
 from twisted.python import log, reflect
@@ -150,7 +152,7 @@ class VoteSourceMixin(PubSubSourceMixin):
             }
 
     def renderTitle(self):
-        return "%s on %s" % (self.title, self.question.title)
+        return "%s on %s" % (self.title, (self.question and self.question.title) or "?")
 
     def _voteToName(self, vote):
         title = unicode(vote.person.title)
@@ -204,17 +206,18 @@ class VoteSource(VoteSourceMixin, item.Item):
 
     feed = attributes.reference()
     via = attributes.text()
-    question = attributes.reference(allowNone=False)
+    question = attributes.reference()
     template = attributes.text()
 
     def renderTitle(self):
-        return "%s, question: %s" % (self.title, self.question.title)
+        return "%s, question: %s" % (self.title, (self.question and self.question.title) or "?")
 
 
 class PresenceSource(VoteSourceMixin, item.Item):
+    title = "Presence"
     feed = attributes.reference()
     via = attributes.text()
-    question = attributes.reference(allowNone=False)
+    question = attributes.reference()
 
     TEXTS_NL = {
             'present': u'is bij de ingang gesignaleerd',
@@ -241,7 +244,7 @@ class IkMicSource(VoteSourceMixin, item.Item):
 
     feed = attributes.reference()
     via = attributes.text()
-    question = attributes.reference(allowNone=False)
+    question = attributes.reference()
 
     TEXTS_NL = {
             'via': 'ikMic',
@@ -263,7 +266,7 @@ class IkMicSource(VoteSourceMixin, item.Item):
 
 
     def renderTitle(self):
-        return "%s, question: %s" % (self.title, self.question.title)
+        return "%s, question: %s" % (self.title, (self.question and self.question.title) or "?")
 
 
 
@@ -331,6 +334,10 @@ class TwitterSource(SourceMixin, item.Item):
                     'subtitle': text,
                     'icon': unicode(payload.user.profile_image_url),
                     }
+
+    def renderTitle(self):
+        return "%s (%d terms, %d users)" % (self.title, len(self.terms or []), len(self.userIDs or []))
+
 
 
 class IkCamSource(SourceMixin, item.Item):
@@ -427,7 +434,7 @@ class RegDeskSource(SourceMixin, item.Item):
                     }
 
     def renderTitle(self):
-        return "%s for %s" % (self.title, self.event.title)
+        return "%s for %s" % (self.title, (self.event and self.event.title) or "?")
 
 
 
@@ -450,7 +457,7 @@ class RaceSource(SourceMixin, item.Item):
             }
 
     def renderTitle(self):
-        return "%s for the race %s" % (self.title, self.race.title)
+        return "%s for the race %s" % (self.title, (self.race and self.race.title) or "?")
 
 
 

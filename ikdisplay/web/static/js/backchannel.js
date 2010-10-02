@@ -1,70 +1,153 @@
 dojo.require("dojo.hash");
+dojo.require("dijit.Dialog");
+dojo.require("dijit.form.Form");
+dojo.require("dijit.form.Button");
+dojo.require("dijit.form.Textarea");
+dojo.require("dijit.form.TextBox");
 
 dojo.ready(function()
 {
-    var template = {
-        _cache: {},
-        get: function(tpl) {
-            if (typeof template._cache[tpl] != "undefined") {
-                var d = new dojo.Deferred();
-                d.callback(template._cache[tpl]);
-                return d;
+    window.BackChannel = function() 
+    {
+        var self = this;
+
+        /*
+         * Simple static template fetching and in-memory caching.
+         */
+        self.template = {
+            _cache: {},
+            get: function(tpl) {
+                if (typeof self.template._cache[tpl] != "undefined") {
+                    var d = new dojo.Deferred();
+                    d.callback(self.template._cache[tpl]);
+                    return d;
+                }
+                return dojo.xhrGet({url: "/static/" + tpl, preventCache: true})
+                    .then(function(contents) {
+                              self.template._cache[tpl] = jsontemplate.Template(contents);
+                              return self.template._cache[tpl];
+                          });
             }
-            return dojo.xhrGet({url: "/static/" + tpl})
-                .then(function(contents) {
-                          template._cache[tpl] = jsontemplate.Template(contents);
-                          return template._cache[tpl];
+        };
+        
+        /*
+         * API controller. Posts requests to /api/:method and returns JSON.
+         */
+        self.doAPI = function(method, data) {
+            return dojo.xhrPost({url: "/api/" + method, postData: dojo.objectToQuery(data), handleAs: "json"});
+        };
+
+
+        /**
+         * Helper fun to render a template with the data from an API call.
+         */
+        var renderTemplateWithData = function(tplfile, apicall, data) {
+            var tpl = "";
+            var d = self.template.get(tplfile)
+                .then(function(t) {
+                          tpl = t;
+                          return self.doAPI(apicall, data);
+                      })
+                .then(function(result) {
+                          dojo.byId("contents").innerHTML = tpl.expand(result);
                       });
-        }
-    };
-
-    var api = function(method, data) {
-        return dojo.xhrPost({url: "/api/" + method, postData: dojo.objectToQuery(data), handleAs: "json"});
-    };
+            return d;
+        };
 
 
-    var renderTemplateWithData = function(tplfile, apicall, data) {
-        var tpl = "";
-        var d = template.get(tplfile)
-            .then(function(t) {
-                   tpl = t;
-                   return api(apicall, data);
-               })
-            .then(function(result) {
-                   dojo.byId("contents").innerHTML = tpl.expand(result);
-               });
-        return d;
-    };
+        /*
+         * The page controllers
+         */
+        self.controller = {
+            feed: function(id) {
+                self.dispatch.last = [self.controller.feed, [id]];
+                renderTemplateWithData("feed.tpl", "feed", {id: id});
+            },
+
+            feeds: function() {
+                self.dispatch.last = [self.controller.feeds, []];
+                renderTemplateWithData("feeds.tpl", "feeds");
+            },
+
+            source: function(id) {
+                self.dispatch.last = [self.controller.source, [id]];
+                renderTemplateWithData("source.tpl", "getItem", {id: id});
+            }
+
+        };
 
 
-    /*
-     * The page controllers
-     */
-    var controller = {
-        feed: function(id) {
-            renderTemplateWithData("feed.tpl", "feed", {id: id});
-        },
+        /*
+         * Function for initiating actions on the backchannel.
+         */
+        self.actions = {
+            addSource: function(feedId, idx) {
+                if (idx == "") return;
+                self.doAPI("addSource", {id: feedId, idx: idx})
+                    .then(function(r) {
+                              // Refresh
+                              self.reload();
+                          });
+            },
+            addFeed: function() {
+                self.doAPI("addFeed")
+                    .then(function(r) {
+                              // Go to feed
+                              self.controller.feed(r._id);
+                          });
+            },
+            removeItem: function(id) {
+                self.doAPI("removeItem", {id: id})
+                    .then(function(r) {
+                              // Refresh
+                              self.reload();
+                          });
+            },
+            editItem: function(id, title, cls) {
+                var template = null;
+                self.template.get("form" + (cls ? "." + cls : "") + ".tpl")
+                    .then(
+                        function(tpl) {
+                            template = tpl;
+                            return self.doAPI("getItem", {id:id});
+                    }).then(
+                        function(data) {
+                            self.dialog = new dijit.Dialog({title: title});
+                            self.dialog.attr("content", template.expand(data));
+                            self.dialog.show();
+                        });
+            },
+            updateItem: function(id, button) {
+                var form = dijit.getEnclosingWidget(button.domNode.parentNode);
+                var args = form.attr("value");
+                args.id = id;
+                console.log(args);
+                
+                self.doAPI("updateItem", args).then(function(r) {
+                                                        self.dialog.hide();
+                                                        self.reload();
+                                                    });
+            }
+        };
 
-        feeds: function() {
-            renderTemplateWithData("feeds.tpl", "feeds");
-        },
 
-        source: function(id) {
-            renderTemplateWithData("source.tpl", "getItem", {id: id});
-        }
+        self.dispatch = function() {
+            var parts = dojo.hash().split("/");
+            var base = parts.shift();
+            var dispatch = self.controller[base];
+            if (!dispatch) {
+                dispatch = self.controller.feeds;
+            }
+            dispatch.apply(this, parts);
+        };
+        self.reload = function() {
+            self.dispatch.last[0].apply(this, self.dispatch.last[1]);
+        };
 
-    };
+        dojo.subscribe("/dojo/hashchange", null, dispatch);
+        dispatch();
+        
+        return self;
+    }();
 
-    var dispatch = function() {
-        var parts = dojo.hash().split("/");
-        var base = parts.shift();
-        var dispatch = controller[base];
-        if (!dispatch) {
-            dojo.hash("#feeds", true);
-            return;
-        }
-        dispatch.apply(this, parts);
-    };
-    dojo.subscribe("/dojo/hashchange", null, dispatch);
-    dispatch();
 });
