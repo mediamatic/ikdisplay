@@ -1,10 +1,22 @@
 from twisted.application import service, strports
-from twisted.web import resource, static, server
+from twisted.web import resource, static, server, http
 
 from ikdisplay.aggregator import Feed, Site, Thing
 from ikdisplay import source
 import json
 from axiom import store, item, attributes
+
+
+class ProtectedResource(resource.Resource):
+
+    def render(self, request):
+        request.setHeader('WWW-Authenticate', 'Basic realm="Test realm"')
+        if request.getUser() != "admin" or request.getPassword() != "admin":
+            request.setResponseCode(http.UNAUTHORIZED)
+            request.setHeader('WWW-Authenticate', 'Basic realm="Test realm"')
+            return static.Data("<body><h1>Unauthorized</h1></body>", "text/html").render(request)
+        return resource.Resource.render(self, request)
+
 
 class Encoder(json.JSONEncoder):
     def default(self, obj):
@@ -29,26 +41,33 @@ class APIError(Exception):
     pass
 
 
-class APIMethod(resource.Resource):
+class APIMethod(ProtectedResource):
+
     def __init__(self, fun):
-        resource.Resource.__init__(self)
+        ProtectedResource.__init__(self)
         self.fun = fun
 
-    def render(self, request):
+
+    def render_GET(self, request):
         if 'help' in request.args:
             return self.fun.__doc__.strip()
         request.setHeader("Content-Type", "application/json")
         try:
             return json.dumps(self.fun(request), cls=Encoder)
         except KeyError, e:
-            request.setResponseCode(400)
+            request.setResponseCode(http.BAD_REQUEST)
             return "Missing argument %s\n" % str(e)
         except NotFound, e:
-            request.setResponseCode(404)
+            request.setResponseCode(http.NOT_FOUND)
             return "%s not found\n" % str(e)
         except APIError, e:
-            request.setResponseCode(400)
+            request.setResponseCode(http.BAD_REQUEST)
             return str(e)+"\n"
+
+
+    def render_POST(self, request):
+        return self.render_GET(request)
+
 
 
 class APIResource(resource.Resource):
@@ -143,8 +162,15 @@ class APIResource(resource.Resource):
 
 st = store.Store("/tmp/foo")
 
+class Index(ProtectedResource):
+    def render_GET(self, request):
+        return static.File("ikdisplay/web/index.html").render_GET(request)
+
+
+print Index()
+
 rootResource = resource.Resource()
-rootResource.putChild('', static.File("ikdisplay/web/index.html"))
+rootResource.putChild('', Index())
 rootResource.putChild('static', static.File("ikdisplay/web/static"))
 rootResource.putChild('api', APIResource(st))
 
