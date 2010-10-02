@@ -72,6 +72,11 @@ class Thing(item.Item):
     uri = attributes.text(allowNone=False)
 
 
+    def discoverCreate(cls, store, uri):
+        """ Perform discovery on the URL to get the title, and then create a thing. """
+        return Thing(store=store, uri=unicode(uri), title=u"?")
+    discoverCreate = classmethod(discoverCreate)
+
 
 class BaseAggregator(service.MultiService):
 

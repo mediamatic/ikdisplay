@@ -4,6 +4,8 @@ dojo.require("dijit.form.Form");
 dojo.require("dijit.form.Button");
 dojo.require("dijit.form.Textarea");
 dojo.require("dijit.form.TextBox");
+dojo.require("dijit.form.FilteringSelect");
+dojo.require("dojo.data.ItemFileReadStore");
 
 dojo.ready(function()
 {
@@ -69,6 +71,10 @@ dojo.ready(function()
 
             sites: function() {
                 return renderTemplateWithData("sites.tpl", "sites");
+            },
+
+            things: function() {
+                return renderTemplateWithData("things.tpl", "things");
             }
         };
 
@@ -99,6 +105,25 @@ dojo.ready(function()
                 self.doAPI("addSite")
                     .then(function(r) {
                               self.actions.editItem(r._id, 'Edit site', 'Site');
+                          });
+            },
+            addThing: function() {
+                var template = null;
+                self.template.get("form.AddThing.tpl")
+                    .then(
+                        function(template) {
+                            self.dialog = new dijit.Dialog({title: "Add thing"});
+                            self.dialog.attr("content", template.expand({}));
+                            self.dialog.show();
+                        });
+            },
+            createThing: function(button) {
+                var form = dijit.getEnclosingWidget(button.domNode.parentNode);
+                var args = form.attr("value");
+                self.doAPI("addThing", {uri: args.uri})
+                    .then(function(thing) {
+                              self.dialog.hide();
+                              self.reload();
                           });
             },
             removeItem: function(id) {

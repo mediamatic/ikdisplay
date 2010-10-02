@@ -14,7 +14,7 @@ class ProtectedResource(resource.Resource):
         if request.getUser() != "admin" or request.getPassword() != "admin":
             request.setResponseCode(http.UNAUTHORIZED)
             request.setHeader('WWW-Authenticate', 'Basic realm="Test realm"')
-            return static.Data("<body><h1>Unauthorized</h1></body>", "text/html").render(request)
+            return static.Data("<body><h1>Unauthorized</h1></body>\n", "text/html").render(request)
         return resource.Resource.render(self, request)
 
 
@@ -94,6 +94,11 @@ class APIResource(resource.Resource):
         return self.store.query(Feed)
 
 
+    def api_things(self, request):
+        """ Get the list of all things. """
+        return self.store.query(Thing)
+
+
     def api_feed(self, request):
         """ Get a feed and its sources by {id}. """
         id = int(request.args["id"][0])
@@ -128,6 +133,11 @@ class APIResource(resource.Resource):
             value = unicode(args[k][0])
             if isinstance(schema[k], attributes.textlist):
                 value = [s.strip() for s in value.strip().split("\n") if s.strip() != ""]
+            if isinstance(schema[k], attributes.reference):
+                if not value:
+                    value = None
+                else:
+                    value = self.store.getItemByID(int(value))
             setattr(item, k, value)
         return item
 
@@ -158,6 +168,26 @@ class APIResource(resource.Resource):
         """ Adds a new, unnamed site. Returns the feed item. """
         site = Site(store=self.store, title=u"Untitled site", uri=u"http://...")
         return site
+
+
+    def api_selectSites(self, request):
+        sites = self.api_sites(request)
+        items = [{"id": s.storeID, "title": s.title} for s in sites]
+        return {"identifier": "id", "items": items}
+
+
+    def api_selectThings(self, request):
+        things = self.api_things(request)
+        items = [{"id": s.storeID, "title": s.title} for s in things]
+        return {"identifier": "id", "items": items}
+
+
+    def api_addThing(self, request):
+        """ Adds a new thing with a {uri}. Returns the thing item. """
+        uri = request.args["uri"][0]
+        return Thing.discoverCreate(self.store, uri)
+
+
 
 
 st = store.Store("/tmp/foo")
