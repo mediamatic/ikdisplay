@@ -16,6 +16,8 @@ class Encoder(json.JSONEncoder):
             if source.ISource.providedBy(obj):
                 val['_title'] = obj.renderTitle()
                 val['_type'] = obj.title
+            if isinstance(obj, Feed):
+                val['_uri'] = obj.getURI()
             return val
         return json.JSONEncoder.default(self, obj)
 

@@ -61,17 +61,17 @@ dojo.ready(function()
         self.controller = {
             feed: function(id) {
                 self.dispatch.last = [self.controller.feed, [id]];
-                renderTemplateWithData("feed.tpl", "feed", {id: id});
+                return renderTemplateWithData("feed.tpl", "feed", {id: id});
             },
 
             feeds: function() {
                 self.dispatch.last = [self.controller.feeds, []];
-                renderTemplateWithData("feeds.tpl", "feeds");
+                return renderTemplateWithData("feeds.tpl", "feeds");
             },
 
             source: function(id) {
                 self.dispatch.last = [self.controller.source, [id]];
-                renderTemplateWithData("source.tpl", "getItem", {id: id});
+                return renderTemplateWithData("source.tpl", "getItem", {id: id});
             }
 
         };
@@ -93,7 +93,10 @@ dojo.ready(function()
                 self.doAPI("addFeed")
                     .then(function(r) {
                               // Go to feed
-                              self.controller.feed(r._id);
+                              self.dispatch("feed/" + r._id)
+                                  .then(function() {
+                                            self.actions.editItem(r._id, 'Edit feed', 'Feed');
+                                        });
                           });
             },
             removeItem: function(id) {
@@ -121,8 +124,6 @@ dojo.ready(function()
                 var form = dijit.getEnclosingWidget(button.domNode.parentNode);
                 var args = form.attr("value");
                 args.id = id;
-                console.log(args);
-                
                 self.doAPI("updateItem", args).then(function(r) {
                                                         self.dialog.hide();
                                                         self.reload();
@@ -131,17 +132,22 @@ dojo.ready(function()
         };
 
 
-        self.dispatch = function() {
-            var parts = dojo.hash().split("/");
+        self.dispatch = function(location) {
+            if (!location) {
+                location = dojo.hash();
+            } else {
+                dojo.hash(location);
+            }
+            var parts = location.split("/");
             var base = parts.shift();
             var dispatch = self.controller[base];
             if (!dispatch) {
                 dispatch = self.controller.feeds;
             }
-            dispatch.apply(this, parts);
+            return dispatch.apply(this, parts);
         };
         self.reload = function() {
-            self.dispatch.last[0].apply(this, self.dispatch.last[1]);
+            return self.dispatch.last[0].apply(this, self.dispatch.last[1]);
         };
 
         dojo.subscribe("/dojo/hashchange", null, dispatch);

@@ -58,6 +58,9 @@ class Feed(item.Item):
         """ The list of sources for this feed. """
         return list(self.powerupsFor(ISource))
 
+    def getURI(self):
+        return "xmpp:feeds.mediamatic.nl?node=" + self.handle
+
 
 class Site(item.Item):
     title = attributes.text()
