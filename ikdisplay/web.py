@@ -182,7 +182,7 @@ class APIResource(resource.Resource):
         """ Adds the {n}th source to the feed specified by {id}. Returns the new source. """
         feed = self.api_getItem(request)
         cls = source.allSources[int(request.args["idx"][0])]
-        return cls.create(store, feed)
+        return cls.create(self.store, feed)
 
 
     def api_addFeed(self, request):
