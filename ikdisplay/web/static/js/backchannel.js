@@ -16,22 +16,10 @@ dojo.ready(function()
         /*
          * Simple static template fetching and in-memory caching.
          */
-        self.template = {
-            _cache: {},
-            get: function(tpl) {
-                if (typeof self.template._cache[tpl] != "undefined") {
-                    var d = new dojo.Deferred();
-                    d.callback(self.template._cache[tpl]);
-                    return d;
-                }
-                return dojo.xhrGet({url: "/static/" + tpl, preventCache: true})
-                    .then(function(contents) {
-                              self.template._cache[tpl] = jsontemplate.Template(contents);
-                              return self.template._cache[tpl];
-                          });
-            }
+        self.getTemplate = function(tplfile) {
+            return jsontemplate.Template(dojo.cache("template", "http://localhost:8080/static/" + tplfile));
         };
-        
+
         /*
          * API controller. Posts requests to /api/:method and returns JSON.
          */
@@ -44,12 +32,8 @@ dojo.ready(function()
          * Helper fun to render a template with the data from an API call.
          */
         var renderTemplateWithData = function(tplfile, apicall, data) {
-            var tpl = "";
-            var d = self.template.get(tplfile)
-                .then(function(t) {
-                          tpl = t;
-                          return self.doAPI(apicall, data);
-                      })
+            var tpl = self.getTemplate(tplfile);
+            var d = self.doAPI(apicall, data)
                 .then(function(result) {
                           dojo.byId("contents").innerHTML = tpl.expand(result);
                       });
@@ -111,14 +95,10 @@ dojo.ready(function()
                           });
             },
             addThing: function() {
-                var template = null;
-                self.template.get("form.AddThing.tpl")
-                    .then(
-                        function(template) {
-                            self.dialog = new dijit.Dialog({title: "Add thing"});
-                            self.dialog.attr("content", template.expand({}));
-                            self.dialog.show();
-                        });
+                var template = self.getTemplate("form.AddThing.tpl");
+                self.dialog = new dijit.Dialog({title: "Add thing"});
+                self.dialog.attr("content", template.expand({}));
+                self.dialog.show();
             },
             createThing: function(button) {
                 var form = dijit.getEnclosingWidget(button.domNode.parentNode);
@@ -138,13 +118,9 @@ dojo.ready(function()
                           });
             },
             editItem: function(id, title, cls) {
-                var template = null;
-                self.template.get("form" + (cls ? "." + cls : "") + ".tpl")
+                var template = self.getTemplate("form" + (cls ? "." + cls : "") + ".tpl");
+                return self.doAPI("getItem", {id:id})
                     .then(
-                        function(tpl) {
-                            template = tpl;
-                            return self.doAPI("getItem", {id:id});
-                    }).then(
                         function(data) {
                             self.dialog = new dijit.Dialog({title: title});
                             self.dialog.attr("content", template.expand(data));

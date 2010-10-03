@@ -9,7 +9,7 @@
     </tr>
     {.repeated section sources}
     <tr class="{.section enabled}enabled{.or}disabled{.end}">
-        <td><input type="checkbox" name="enabled" {.section enabled}checked="checked"{.end} onclick="BackChannel.actions.toggleEnabled({_id}, {enabled})" /></td>
+        <td><input type="checkbox" name="enabled" {.section enabled}checked="checked"{.end} onclick="BackChannel.actions.toggleEnabled({_id}, {.section enabled}true{.or}false{.end})" /></td>
         <td>{_title}</td>
         <td>{_type}</td>
         <td>

@@ -54,7 +54,7 @@ class APIMethod(ProtectedResource):
 
     def render_GET(self, request):
         if 'help' in request.args:
-            return self.fun.__doc__.strip()
+            return self.fun.__doc__.strip()+"\n"
         request.setHeader("Content-Type", "application/json")
 
         try:
