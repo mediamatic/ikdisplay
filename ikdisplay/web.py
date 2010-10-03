@@ -1,10 +1,17 @@
+# Copyright 2010 Mediamatic Lab
+# See LICENSE for details
+
+import json
+
 from twisted.application import service, strports
 from twisted.web import resource, static, server, http
+from twisted.internet import defer
+from twisted.python import failure, log
+from axiom import store, item, attributes
+from twisted.web.server import NOT_DONE_YET
 
 from ikdisplay.aggregator import Feed, Site, Thing
 from ikdisplay import source
-import json
-from axiom import store, item, attributes
 
 
 class ProtectedResource(resource.Resource):
@@ -37,9 +44,6 @@ class Encoder(json.JSONEncoder):
 class NotFound(Exception):
     pass
 
-class APIError(Exception):
-    pass
-
 
 class APIMethod(ProtectedResource):
 
@@ -52,17 +56,40 @@ class APIMethod(ProtectedResource):
         if 'help' in request.args:
             return self.fun.__doc__.strip()
         request.setHeader("Content-Type", "application/json")
+
         try:
-            return json.dumps(self.fun(request), cls=Encoder)
-        except KeyError, e:
+            result = self.fun(request)
+            if not isinstance(result, defer.Deferred):
+                result = defer.succeed(result)
+        except Exception, e:
+            result = defer.fail(failure.Failure(e))
+
+        result.addCallback(lambda r: json.dumps(r, cls=Encoder))
+
+        def missingArgument(f):
+            f.trap(KeyError)
             request.setResponseCode(http.BAD_REQUEST)
-            return "Missing argument %s\n" % str(e)
-        except NotFound, e:
+            return "Missing argument %s\n" % str(f.value)
+        result.addErrback(missingArgument)
+
+        def notFound(f):
+            f.trap(NotFound)
             request.setResponseCode(http.NOT_FOUND)
-            return "%s not found\n" % str(e)
-        except APIError, e:
+            return "%s not found\n" % str(f.value)
+        result.addErrback(notFound)
+
+        def genericError(f):
             request.setResponseCode(http.BAD_REQUEST)
-            return str(e)+"\n"
+            log.err(f)
+            return str(f.value)+"\n"
+        result.addErrback(genericError)
+
+        def finish(r):
+            request.write(r)
+            request.finish()
+        result.addCallback(finish)
+
+        return NOT_DONE_YET
 
 
     def render_POST(self, request):
@@ -129,7 +156,7 @@ class APIResource(resource.Resource):
         schema = dict(item.__class__.getSchema())
         for k in args.keys():
             if k not in schema:
-                raise APIError("Invalid update attribute: " + k)
+                raise Exception("Invalid update attribute: " + k)
             value = unicode(args[k][0])
             if isinstance(schema[k], attributes.textlist):
                 value = [s.strip() for s in value.strip().split("\n") if s.strip() != ""]
