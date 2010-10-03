@@ -2,7 +2,7 @@ import copy
 
 from twisted.application import service
 from twisted.python import log
-
+from twisted.web import client
 from twisted.words.protocols.jabber.jid import JID
 
 from axiom import item, attributes
@@ -58,6 +58,9 @@ class Feed(item.Item):
         """ The list of sources for this feed. """
         return list(self.powerupsFor(ISource))
 
+    def getURI(self):
+        return "xmpp:feeds.mediamatic.nl?node=" + self.handle
+
 
 class Site(item.Item):
     title = attributes.text()
@@ -68,6 +71,21 @@ class Thing(item.Item):
     title = attributes.text()
     uri = attributes.text(allowNone=False)
 
+
+    def discoverCreate(cls, store, uri):
+        """ Perform discovery on the URL to get the title, and then create a thing. """
+        d = client.getPage(uri)
+        def parsePage(content):
+            from lxml.html.soupparser import fromstring
+            tree = fromstring(content)
+            h1 = tree.find(".//h1")
+            title = unicode((h1 is not None and h1.text) or "?")
+            slf = tree.find(".//link[@rel=\"self\"]")
+            newuri = unicode((slf is not None and slf.attrib["href"]) or uri)
+            return Thing(store=store, uri=newuri, title=title)
+        d.addCallback(parsePage)
+        return d
+    discoverCreate = classmethod(discoverCreate)
 
 
 class BaseAggregator(service.MultiService):
