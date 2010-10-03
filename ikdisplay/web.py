@@ -198,12 +198,14 @@ class APIResource(resource.Resource):
 
 
     def api_selectSites(self, request):
+        """ Returns all the sites as a JSON object which can be used in a dojo.data.ItemReadFileStore. """
         sites = self.api_sites(request)
         items = [{"id": s.storeID, "title": s.title} for s in sites]
         return {"identifier": "id", "items": items}
 
 
     def api_selectThings(self, request):
+        """ Returns all the things as a JSON object which can be used in a dojo.data.ItemReadFileStore. """
         things = self.api_things(request)
         items = [{"id": s.storeID, "title": s.title} for s in things]
         return {"identifier": "id", "items": items}
