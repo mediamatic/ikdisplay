@@ -2,12 +2,14 @@
 
 <table border="1">
     <tr>
+        <th>&nbsp;</th>
         <th>Title</th>
         <th>Type</th>
         <th>&nbsp;</th>
     </tr>
     {.repeated section sources}
-    <tr>
+    <tr class="{.section enabled}enabled{.or}disabled{.end}">
+        <td><input type="checkbox" name="enabled" {.section enabled}checked="checked"{.end} onclick="BackChannel.actions.toggleEnabled({_id}, {enabled})" /></td>
         <td>{_title}</td>
         <td>{_type}</td>
         <td>

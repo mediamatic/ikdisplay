@@ -159,6 +159,10 @@ dojo.ready(function()
                                                         self.dialog.hide();
                                                         self.reload();
                                                     });
+            },
+            toggleEnabled: function(id, curval) {
+                var val = !curval;
+                self.doAPI("updateItem", {id:id, enabled:val}).then(self.reload);
             }
         };
 

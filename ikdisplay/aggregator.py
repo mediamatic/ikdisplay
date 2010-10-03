@@ -80,9 +80,7 @@ class Thing(item.Item):
             tree = fromstring(content)
             h1 = tree.find(".//h1")
             title = unicode((h1 is not None and h1.text) or "?")
-            print title
             slf = tree.find(".//link[@rel=\"self\"]")
-            print slf
             newuri = unicode((slf is not None and slf.attrib["href"]) or uri)
             return Thing(store=store, uri=newuri, title=title)
         d.addCallback(parsePage)

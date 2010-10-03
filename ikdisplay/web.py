@@ -158,6 +158,8 @@ class APIResource(resource.Resource):
             if k not in schema:
                 raise Exception("Invalid update attribute: " + k)
             value = unicode(args[k][0])
+            if isinstance(schema[k], attributes.boolean):
+                value = value == "true"
             if isinstance(schema[k], attributes.textlist):
                 value = [s.strip() for s in value.strip().split("\n") if s.strip() != ""]
             if isinstance(schema[k], attributes.reference):
@@ -180,9 +182,7 @@ class APIResource(resource.Resource):
         """ Adds the {n}th source to the feed specified by {id}. Returns the new source. """
         feed = self.api_getItem(request)
         cls = source.allSources[int(request.args["idx"][0])]
-        src = cls(store=self.store)
-        src.installOn(feed)
-        return src
+        return cls.create(store, feed)
 
 
     def api_addFeed(self, request):

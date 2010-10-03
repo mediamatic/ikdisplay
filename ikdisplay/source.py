@@ -26,23 +26,21 @@ class SourceMixin(object):
         other.powerUp(self, ISource)
 
 
-    def getForm(self):
-        """
-        Render the configuration form for this source.
-        """
-        return tags.strong()["Fixme: getForm()"]
-
     def renderTitle(self):
         """
         Renders a title for display in the configuration.
         """
         return self.title
 
-    def renderForm(self):
+
+    def create(cls, store, feed):
         """
-        Renders the configuration form for display in the configuration.
+        Creates a source in a specific feed. PubSub magic should be done here.
         """
-        return tags.strong()["Fixme: renderForm()"]
+        source = cls(store=store)
+        source.installOn(feed)
+        return source
+    create = classmethod(create)
 
 
 class IPubSubEventProcessor(Interface):
@@ -120,6 +118,8 @@ class SimpleSource(PubSubSourceMixin, item.Item):
     title = "Simple source"
 
     feed = attributes.reference()
+    enabled = attributes.boolean()
+
     via = attributes.text()
     subscription = attributes.reference()
 
@@ -215,7 +215,10 @@ class VoteSource(VoteSourceMixin, item.Item):
 
 class PresenceSource(VoteSourceMixin, item.Item):
     title = "Presence"
+
     feed = attributes.reference()
+    enabled = attributes.boolean()
+
     via = attributes.text()
     question = attributes.reference()
 
@@ -243,6 +246,8 @@ class IkMicSource(VoteSourceMixin, item.Item):
     title = "IkMic"
 
     feed = attributes.reference()
+    enabled = attributes.boolean()
+
     via = attributes.text()
     question = attributes.reference()
 
@@ -275,6 +280,8 @@ class StatusSource(SourceMixin, item.Item):
     title = "Status updates"
 
     feed = attributes.reference()
+    enabled = attributes.boolean()
+
     via = attributes.text()
     site = attributes.reference("""
     Reference to the site the statuses come from.
@@ -309,6 +316,8 @@ class TwitterSource(SourceMixin, item.Item):
     title = "Twitter"
 
     feed = attributes.reference()
+    enabled = attributes.boolean()
+
     terms = attributes.textlist()
     userIDs = attributes.textlist()
 
@@ -344,6 +353,8 @@ class IkCamSource(SourceMixin, item.Item):
     title = "IkCam pictures"
 
     feed = attributes.reference()
+    enabled = attributes.boolean()
+
     via = attributes.text()
     event = attributes.reference("""
     Reference to the event the pictures were taken at.
@@ -403,6 +414,8 @@ class RegDeskSource(SourceMixin, item.Item):
     title = "Registration desk"
 
     feed = attributes.reference()
+    enabled = attributes.boolean()
+
     via = attributes.text()
     event = attributes.reference("""
     Reference to the event.
@@ -442,6 +455,8 @@ class RaceSource(SourceMixin, item.Item):
     title = "Race events"
 
     feed = attributes.reference()
+    enabled = attributes.boolean()
+
     via = attributes.text()
     race = attributes.reference("""
     Reference to the thing representing the race.
