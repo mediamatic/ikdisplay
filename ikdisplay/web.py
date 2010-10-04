@@ -154,6 +154,8 @@ class APIResource(resource.Resource):
         args = dict(request.args)
         del args['id']
         schema = dict(item.__class__.getSchema())
+
+        # Map the update attributes
         for k in args.keys():
             if k not in schema:
                 raise Exception("Invalid update attribute: " + k)
@@ -168,6 +170,12 @@ class APIResource(resource.Resource):
                 else:
                     value = self.store.getItemByID(int(value))
             setattr(item, k, value)
+
+        # Update the item
+        if source.IPubSubEventProcessor.providedBy(item):
+            # FIXME: call the pubsub service to fix stuff.
+            pass
+
         return item
 
 
@@ -182,7 +190,9 @@ class APIResource(resource.Resource):
         """ Adds the {n}th source to the feed specified by {id}. Returns the new source. """
         feed = self.api_getItem(request)
         cls = source.allSources[int(request.args["idx"][0])]
-        return cls.create(self.store, feed)
+        src = cls(store=self.store)
+        src.installOn(feed)        
+        return src
 
 
     def api_addFeed(self, request):

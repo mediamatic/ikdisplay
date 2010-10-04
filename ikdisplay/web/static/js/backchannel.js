@@ -17,7 +17,8 @@ dojo.ready(function()
          * Simple static template fetching and in-memory caching.
          */
         self.getTemplate = function(tplfile) {
-            return jsontemplate.Template(dojo.cache("template", "http://localhost:8080/static/" + tplfile));
+            var base = document.location.href.replace(/#.*/, '').replace(/\/$/, '');
+            return jsontemplate.Template(dojo.cache("template", base + "/static/" + tplfile));
         };
 
         /*

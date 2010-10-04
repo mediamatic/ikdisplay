@@ -5,14 +5,18 @@ from zope.interface import Interface, implements
 
 from twisted.python import log, reflect
 
-from nevow import tags
-
 from axiom import attributes, item
+
 
 class ISource(Interface):
     """
     A feed source.
     """
+
+    def renderTitle():
+        """
+        Renders a title for display in the configuration.
+        """
 
 
 
@@ -27,26 +31,20 @@ class SourceMixin(object):
 
 
     def renderTitle(self):
-        """
-        Renders a title for display in the configuration.
-        """
         return self.title
 
 
-    def create(cls, store, feed):
-        """
-        Creates a source in a specific feed. PubSub magic should be done here.
-        """
-        source = cls(store=store)
-        source.installOn(feed)
-        return source
-    create = classmethod(create)
+    def changeAttributes(self, attributes):
+        [setattr(item, k, v) for k,v in attributes.iteritems()]
+
 
 
 class IPubSubEventProcessor(Interface):
     def itemsReceived(event):
         pass
 
+    def getNode():
+        """ Return the pubsub node """
 
 
 class PubSubSourceMixin(SourceMixin):
@@ -408,6 +406,8 @@ class IkCamSource(SourceMixin, item.Item):
         if self.creator:
             s += " created by " + self.creator.title
         return s
+
+
 
 
 class RegDeskSource(SourceMixin, item.Item):

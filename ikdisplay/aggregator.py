@@ -62,9 +62,19 @@ class Feed(item.Item):
         return "xmpp:feeds.mediamatic.nl?node=" + self.handle
 
 
+
 class Site(item.Item):
     title = attributes.text()
     uri = attributes.text(allowNone=False)
+
+
+    def getPubSubDomain(self):
+        from urlparse import urlparse
+        hostname = urlparse(self.uri).hostname
+        if hostname[:4] == "www.":
+            hostname = hostname[4:]
+        return "pubsub." + hostname
+
 
 
 class Thing(item.Item):
@@ -86,6 +96,14 @@ class Thing(item.Item):
         d.addCallback(parsePage)
         return d
     discoverCreate = classmethod(discoverCreate)
+
+
+    def getID(self):
+        """
+        Return the id of this thing.
+        """
+        return int(self.uri.split("/")[-1])
+
 
 
 class BaseAggregator(service.MultiService):
