@@ -1,9 +1,15 @@
+"""
+Tests for L{ikdisplay.source}.
+"""
+
+from zope.interface import verify
+
 from twisted.trial import unittest
 
 from wokkel.generic import parseXml
 from wokkel import pubsub
 
-from ikdisplay import aggregator, source
+from ikdisplay import aggregator, source, xmpp
 
 class PubSubSourceMixinTest(unittest.TestCase):
 
@@ -48,7 +54,42 @@ def formatPayload(src, xml):
     return src.format_payload(payload)
 
 
-class VoteSourceTest(unittest.TestCase):
+class PubSubSourceTests(object):
+
+    def test_interfaceISource(self):
+        """
+        Does this source provide L{source.ISource}?
+        """
+        verify.verifyObject(source.ISource, self.source)
+
+
+    def test_interfaceIPubSubEventProcessor(self):
+        """
+        Does this source provide L{xmpp.IPubSubEventProcessor}?
+        """
+        verify.verifyObject(xmpp.IPubSubEventProcessor, self.source)
+
+
+
+class SimpleSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.SimpleSource}.
+    """
+
+    def setUp(self):
+        self.source = source.SimpleSource()
+
+
+
+class VoteSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.VoteSource}.
+    """
+
+    def setUp(self):
+        thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
+        self.source = source.VoteSource(question=thing)
+
 
     def test_formatPayload(self):
         xml = """
@@ -88,9 +129,7 @@ class VoteSourceTest(unittest.TestCase):
 </rsp>
         """
 
-        thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
-        src = source.VoteSource(question=thing)
-        notification = formatPayload(src, xml)
+        notification = formatPayload(self.source, xml)
 
         self.assertEquals(u'Fred Pook',
                           notification['title'])
@@ -99,7 +138,15 @@ class VoteSourceTest(unittest.TestCase):
 
 
 
-class PresenceSourceTest(unittest.TestCase):
+class PresenceSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.PresenceSource}.
+    """
+
+    def setUp(self):
+        thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
+        self.source = source.PresenceSource(question=thing)
+
 
     def test_formatPayload(self):
         xml = """
@@ -139,9 +186,7 @@ class PresenceSourceTest(unittest.TestCase):
 </rsp>
         """
 
-        thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
-        src = source.PresenceSource(question=thing)
-        notification = formatPayload(src, xml)
+        notification = formatPayload(self.source, xml)
 
         self.assertEquals(u'Fred Pook',
                           notification['title'])
@@ -149,7 +194,16 @@ class PresenceSourceTest(unittest.TestCase):
                           notification['subtitle'])
 
 
-class IkMicSourceTest(unittest.TestCase):
+
+class IkMicSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.IkMicSource}.
+    """
+
+    def setUp(self):
+        thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
+        self.source = source.IkMicSource(question=thing)
+
 
     def test_formatPayload(self):
         xml = """
@@ -189,9 +243,7 @@ class IkMicSourceTest(unittest.TestCase):
 </rsp>
         """
 
-        thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
-        src = source.IkMicSource(question=thing)
-        notification = formatPayload(src, xml)
+        notification = formatPayload(self.source, xml)
 
         self.assertEquals(u'Fred Pook',
                           notification['title'])
@@ -199,12 +251,15 @@ class IkMicSourceTest(unittest.TestCase):
                       source.IkMicSource.TEXTS_EN['interrupt'])
 
 
-class StatusSourceTest(unittest.TestCase):
 
-    def formatPayload(self, xml):
+class StatusSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.StatusSource}.
+    """
+
+    def setUp(self):
         thing = aggregator.Site(uri=u'http://www.mediamatic.net/')
-        src = source.StatusSource(site=thing)
-        return formatPayload(src, xml)
+        self.source = source.StatusSource(site=thing)
 
 
     def test_formatPayload(self):
@@ -219,7 +274,7 @@ class StatusSourceTest(unittest.TestCase):
 </rsp>
         """
 
-        notification = self.formatPayload(xml)
+        notification = formatPayload(self.source, xml)
         self.assertEquals(u'Arjan Scherpenisse',
                           notification['title'])
         self.assertEquals(u'roze koeken ftw',
@@ -238,7 +293,7 @@ class StatusSourceTest(unittest.TestCase):
 </rsp>
         """
 
-        notification = self.formatPayload(xml)
+        notification = formatPayload(self.source, xml)
         self.assertIdentical(None, notification)
 
 
@@ -254,5 +309,45 @@ class StatusSourceTest(unittest.TestCase):
 </rsp>
         """
 
-        notification = self.formatPayload(xml)
+        notification = formatPayload(self.source, xml)
         self.assertIdentical(None, notification)
+
+
+
+class TwitterSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.TwitterSource}.
+    """
+
+    def setUp(self):
+        self.source = source.TwitterSource()
+
+
+
+class IkCamSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.IkCamSource}.
+    """
+
+    def setUp(self):
+        self.source = source.IkCamSource()
+
+
+
+class RegDeskSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.RegDeskSource}.
+    """
+
+    def setUp(self):
+        self.source = source.RegDeskSource()
+
+
+
+class RaceSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.RaceSource}.
+    """
+
+    def setUp(self):
+        self.source = source.RaceSource()

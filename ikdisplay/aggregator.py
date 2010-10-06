@@ -3,42 +3,10 @@ import copy
 from twisted.application import service
 from twisted.python import log
 from twisted.web import client
-from twisted.words.protocols.jabber.jid import JID
 
 from axiom import item, attributes
 
 from ikdisplay.source import ISource
-
-class JIDAttribute(attributes.text):
-    """
-    An in-database representation of a JID.
-
-    This translates between a L{JID} instance and its C{unicode} string
-    representation.
-    """
-
-    def infilter(self, pyval, oself, store):
-        if pyval is None:
-            return None
-
-        return attributes.text.infilter(self, pyval.full(), oself, store)
-
-    def outfilter(self, dbval, oself):
-        if dbval is None:
-            return None
-
-        return JID(dbval)
-
-
-
-class PubSubSubscription(item.Item):
-
-    service = JIDAttribute("""The entity holding the node""",
-                           )
-    nodeIdentifier = attributes.text("""The node identifier""",
-                                     default=u'')
-
-
 
 class Feed(item.Item):
     """

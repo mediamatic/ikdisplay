@@ -1,17 +1,23 @@
+# -*- test-case-name: ikdisplay.test.test_source -*-
+
 import re
 import random
 
-from zope.interface import Interface, implements
-
+from zope.interface import Attribute, Interface, implements
 from twisted.python import log, reflect
-
 from axiom import attributes, item
+
+from ikdisplay.xmpp import IPubSubEventProcessor, JIDAttribute
 
 
 class ISource(Interface):
     """
     A feed source.
     """
+
+    feed = Attribute("""Reference to the feed this source belongs to""")
+    enabled = Attribute("""Enabled state.""")
+    via = Attribute("""Optional text for the 'via' field of a notification.""")
 
     def renderTitle():
         """
@@ -37,14 +43,6 @@ class SourceMixin(object):
     def changeAttributes(self, attributes):
         [setattr(item, k, v) for k,v in attributes.iteritems()]
 
-
-
-class IPubSubEventProcessor(Interface):
-    def itemsReceived(event):
-        pass
-
-    def getNode():
-        """ Return the pubsub node """
 
 
 class PubSubSourceMixin(SourceMixin):
@@ -79,9 +77,23 @@ class PubSubSourceMixin(SourceMixin):
                 reflect.accumulateClassDict(self.__class__, attr, texts)
 
 
+    def installOnSubscription(self, other):
+        self.subscription = other
+        other.powerUp(self, IPubSubEventProcessor)
+
+
+    def uninstallFromSubscription(self, other):
+        other.powerDown(self, IPubSubEventProcessor)
+        self.subscription = None
+
+
     def itemsReceived(self, event):
         notifications = self.format(event)
         self.feed.processNotifications(notifications)
+
+
+    def getNode(self):
+        raise NotImplementedError()
 
 
     def format(self, event):
@@ -117,9 +129,10 @@ class SimpleSource(PubSubSourceMixin, item.Item):
 
     feed = attributes.reference()
     enabled = attributes.boolean()
-
     via = attributes.text()
     subscription = attributes.reference()
+    service = JIDAttribute()
+    nodeIdentifier = attributes.text()
 
     def format_payload(self, payload):
         elementMap = {'title': 'title',
@@ -133,6 +146,11 @@ class SimpleSource(PubSubSourceMixin, item.Item):
                 notification[elementMap[child.name]] = unicode(child)
 
         return notification
+
+
+    def getNode(self):
+        return (self.service, self.nodeIdentifier)
+
 
     def renderTitle(self):
         return "%s (via: %s)" % (self.title, self.via)
@@ -203,7 +221,9 @@ class VoteSource(VoteSourceMixin, item.Item):
     title = "Vote"
 
     feed = attributes.reference()
+    enabled = attributes.boolean()
     via = attributes.text()
+    subscription = attributes.reference()
     question = attributes.reference()
     template = attributes.text()
 
@@ -216,8 +236,8 @@ class PresenceSource(VoteSourceMixin, item.Item):
 
     feed = attributes.reference()
     enabled = attributes.boolean()
-
     via = attributes.text()
+    subscription = attributes.reference()
     question = attributes.reference()
 
     TEXTS_NL = {
@@ -245,8 +265,8 @@ class IkMicSource(VoteSourceMixin, item.Item):
 
     feed = attributes.reference()
     enabled = attributes.boolean()
-
     via = attributes.text()
+    subscription = attributes.reference()
     question = attributes.reference()
 
     TEXTS_NL = {
@@ -274,13 +294,13 @@ class IkMicSource(VoteSourceMixin, item.Item):
 
 
 
-class StatusSource(SourceMixin, item.Item):
+class StatusSource(PubSubSourceMixin, item.Item):
     title = "Status updates"
 
     feed = attributes.reference()
     enabled = attributes.boolean()
-
     via = attributes.text()
+    subscription = attributes.reference()
     site = attributes.reference("""
     Reference to the site the statuses come from.
     """)
@@ -310,12 +330,13 @@ class StatusSource(SourceMixin, item.Item):
         return s
 
 
-class TwitterSource(SourceMixin, item.Item):
+class TwitterSource(PubSubSourceMixin, item.Item):
     title = "Twitter"
 
     feed = attributes.reference()
     enabled = attributes.boolean()
-
+    via = attributes.text()
+    subscription = attributes.reference()
     terms = attributes.textlist()
     userIDs = attributes.textlist()
 
@@ -347,12 +368,12 @@ class TwitterSource(SourceMixin, item.Item):
 
 
 
-class IkCamSource(SourceMixin, item.Item):
+class IkCamSource(PubSubSourceMixin, item.Item):
     title = "IkCam pictures"
 
     feed = attributes.reference()
     enabled = attributes.boolean()
-
+    subscription = attributes.reference()
     via = attributes.text()
     event = attributes.reference("""
     Reference to the event the pictures were taken at.
@@ -410,13 +431,13 @@ class IkCamSource(SourceMixin, item.Item):
 
 
 
-class RegDeskSource(SourceMixin, item.Item):
+class RegDeskSource(PubSubSourceMixin, item.Item):
     title = "Registration desk"
 
     feed = attributes.reference()
     enabled = attributes.boolean()
-
     via = attributes.text()
+    subscription = attributes.reference()
     event = attributes.reference("""
     Reference to the event.
     """)
@@ -451,13 +472,13 @@ class RegDeskSource(SourceMixin, item.Item):
 
 
 
-class RaceSource(SourceMixin, item.Item):
+class RaceSource(PubSubSourceMixin, item.Item):
     title = "Race events"
 
     feed = attributes.reference()
     enabled = attributes.boolean()
-
     via = attributes.text()
+    subscription = attributes.reference()
     race = attributes.reference("""
     Reference to the thing representing the race.
     """)
@@ -470,6 +491,14 @@ class RaceSource(SourceMixin, item.Item):
             'via': 'Alleycat',
             'race_finish': u'finished the %s in %s.',
             }
+
+    def format_payload(self, payload):
+        subtitle = self.texts['race_finish'] % (unicode(payload.event),
+                                                unicode(payload.time))
+
+        return {'title': unicode(payload.person.title),
+                'subtitle': subtitle,
+                'icon': unicode(payload.person.image)}
 
     def renderTitle(self):
         return "%s for the race %s" % (self.title, (self.race and self.race.title) or "?")

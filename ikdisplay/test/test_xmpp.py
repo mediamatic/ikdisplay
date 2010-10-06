@@ -2,13 +2,17 @@
 Tests for L{ikdisplay.xmpp}.
 """
 
+from zope.interface import implements
+
 from twisted.internet import defer
 from twisted.trial import unittest
 from twisted.words.protocols.jabber.jid import JID
 from twisted.words.xish import domish, utility
 
+from axiom import attributes, item, store
+
 from wokkel import pubsub
-from ikdisplay import xmpp
+from ikdisplay import source, xmpp
 
 class TestAggregator(object):
     """
@@ -23,17 +27,64 @@ class TestAggregator(object):
         self.notifications.append(notification)
 
 
+class TestObserver(source.PubSubSourceMixin, item.Item):
+    """
+    A publish-subscribe observer that stores all events in sequence.
+    """
+
+    implements(xmpp.IPubSubEventProcessor)
+    subscription = attributes.reference()
+    service = attributes.inmemory()
+    nodeIdentifier = attributes.inmemory()
+    events = attributes.inmemory()
+
+    def activate(self):
+        self.events = []
+
+
+    def itemsReceived(self, event):
+        self.events.append(event)
+
+
+
+    def getNode(self):
+        return (self.service, self.nodeIdentifier)
+
+
+
 class PubSubClientFromAggregatorTest(unittest.TestCase):
 
     def setUp(self):
         self.jid = JID('user@example.org/Home')
         self.serviceJID = JID('pubsub.example.org')
-        self.nodeIdentifier = 'test'
+        self.nodeIdentifier = u'test'
+
+        self.subscribeCalled = []
+        self.unsubscribeCalled = []
+
+        def subscribe(service, nodeIdentifier, subscriber,
+                      options=None, sender=None):
+            subscription = pubsub.Subscription(nodeIdentifier, subscriber,
+                                               u'subscribed', options)
+            self.subscribeCalled.append(None)
+            return defer.succeed(subscription)
+
+        def unsubscribe(service, nodeIdentifier, subscriber,
+                        subscriptionIdentifier=None, sender=None):
+            self.unsubscribeCalled.append(None)
+            return defer.succeed(None)
 
         xmlstream = utility.EventDispatcher()
-        self.client = xmpp.PubSubClientFromAggregator()
+        self.store = store.Store()
+        self.client = xmpp.PubSubClientFromAggregator(self.store)
+        self.client.subscribe = subscribe
+        self.client.unsubscribe = unsubscribe
         self.client.parent = self
         self.client.makeConnection(xmlstream)
+
+        self.observer = TestObserver(store=self.store,
+                                     service=self.serviceJID,
+                                     nodeIdentifier=self.nodeIdentifier)
 
         payload = domish.Element(('', 'rsp'))
         payload.addElement('status', content='test')
@@ -45,191 +96,92 @@ class PubSubClientFromAggregatorTest(unittest.TestCase):
 
 
     def test_addObserver(self):
-        def observer(event):
-            pass
-
-        def subscribe(service, nodeIdentifier, subscriber, options=None):
-            subscribeCalled.append(None)
-            return defer.succeed(None)
-
-        subscribeCalled = []
-        self.client.subscribe = subscribe
         self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
 
-        self.client.addObserver(observer, self.serviceJID,
-                                          self.nodeIdentifier)
-
-        self.assertEquals(1, len(subscribeCalled))
+        self.assertEquals(1, len(self.subscribeCalled))
 
 
     def test_addObserverTwice(self):
-        def observer(event):
-            pass
+        observer2 = TestObserver(store=self.store,
+                                 service=self.serviceJID,
+                                 nodeIdentifier=self.nodeIdentifier)
 
-        def observer2(event):
-            pass
-
-        def subscribe(service, nodeIdentifier, subscriber, options=None):
-            subscribeCalled.append(None)
-            return defer.succeed(None)
-
-        subscribeCalled = []
-        self.client.subscribe = subscribe
         self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
+        self.assertEquals(1, len(self.subscribeCalled))
 
-        self.client.addObserver(observer, self.serviceJID,
-                                          self.nodeIdentifier)
-        self.assertEquals(1, len(subscribeCalled))
-
-        self.client.addObserver(observer2, self.serviceJID,
-                                          self.nodeIdentifier)
-        self.assertEquals(1, len(subscribeCalled))
+        self.client.addObserver(observer2)
+        self.assertEquals(1, len(self.subscribeCalled))
 
 
     def test_addObserverNotConnected(self):
-        def observer(event):
-            pass
+        self.client.addObserver(self.observer)
 
-        def subscribe(service, nodeIdentifier, subscriber, options=None):
-            subscribeCalled.append(None)
-            return defer.succeed(None)
-
-        subscribeCalled = []
-        self.client.subscribe = subscribe
-        self.client.addObserver(observer, self.serviceJID,
-                                          self.nodeIdentifier)
-
-        self.assertEquals(0, len(subscribeCalled))
+        self.assertEquals(0, len(self.subscribeCalled))
         self.client.connectionInitialized()
-        self.assertEquals(1, len(subscribeCalled))
+        self.assertEquals(1, len(self.subscribeCalled))
 
 
     def test_addObserverNotConnectedTwice(self):
-        def observer(event):
-            pass
+        observer2 = TestObserver(store=self.store,
+                                 service=self.serviceJID,
+                                 nodeIdentifier=self.nodeIdentifier)
 
-        def observer2(event):
-            pass
+        self.client.addObserver(self.observer)
+        self.client.addObserver(observer2)
 
-        def subscribe(service, nodeIdentifier, subscriber, options=None):
-            subscribeCalled.append(None)
-            return defer.succeed(None)
-
-        subscribeCalled = []
-        self.client.subscribe = subscribe
-        self.client.addObserver(observer, self.serviceJID,
-                                          self.nodeIdentifier)
-        self.client.addObserver(observer2, self.serviceJID,
-                                           self.nodeIdentifier)
-
-        self.assertEquals(0, len(subscribeCalled))
+        self.assertEquals(0, len(self.subscribeCalled))
         self.client.connectionInitialized()
-        self.assertEquals(1, len(subscribeCalled))
+        self.assertEquals(1, len(self.subscribeCalled))
 
 
     def test_removeObserver(self):
-        def observer(event):
-            pass
-
-        def subscribe(service, nodeIdentifier, subscriber, options=None,
-                               sender=None):
-            subscribeCalled.append(None)
-            return defer.succeed(None)
-
-        def unsubscribe(service, nodeIdentifier, subscriber,
-                                 subscriptionIdentifier=None, sender=None):
-            unsubscribeCalled.append(None)
-            return defer.succeed(None)
-
-        subscribeCalled = []
-        unsubscribeCalled = []
-        self.client.subscribe = subscribe
-        self.client.unsubscribe = unsubscribe
         self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
+        self.client.removeObserver(self.observer)
 
-        self.client.addObserver(observer, self.serviceJID,
-                                          self.nodeIdentifier)
-        self.client.removeObserver(observer, self.serviceJID,
-                                          self.nodeIdentifier)
-
-        self.assertEquals(1, len(unsubscribeCalled))
+        self.assertEquals(1, len(self.unsubscribeCalled))
 
 
     def test_removeObserverAddAgain(self):
-        def observer(event):
-            pass
-
-        def subscribe(service, nodeIdentifier, subscriber, options=None,
-                               sender=None):
-            subscribeCalled.append(None)
-            return defer.succeed(None)
-
-        def unsubscribe(service, nodeIdentifier, subscriber,
-                                 subscriptionIdentifier=None, sender=None):
-            unsubscribeCalled.append(None)
-            return defer.succeed(None)
-
-        subscribeCalled = []
-        unsubscribeCalled = []
-        self.client.subscribe = subscribe
-        self.client.unsubscribe = unsubscribe
         self.client.connectionInitialized()
-
-        self.client.addObserver(observer, self.serviceJID,
-                                          self.nodeIdentifier)
-        self.client.removeObserver(observer, self.serviceJID,
-                                          self.nodeIdentifier)
-        self.client.addObserver(observer, self.serviceJID,
-                                          self.nodeIdentifier)
-        self.assertEquals(2, len(subscribeCalled))
+        self.client.addObserver(self.observer)
+        self.client.removeObserver(self.observer)
+        self.client.addObserver(self.observer)
+        self.assertEquals(2, len(self.subscribeCalled))
 
 
     def test_itemsReceivedNotify(self):
         """
         Received items result in notifications being generated and notified.
         """
+        self.client.addObserver(self.observer)
         self.client.itemsReceived(self.event)
-        self.assertEquals(1, len(self.aggregator.notifications))
-        notification = self.aggregator.notifications[-1]
-        self.assertEquals(u'Test User', notification[u'title'])
-
-    test_itemsReceivedNotify.skip = True
+        self.assertEquals(1, len(self.observer.events))
 
 
     def test_itemsReceivedNotifyUnknownUnsubscribe(self):
         """
         Items received from unknown nodes cause unsubscription.
         """
-        unsubscribed = []
-
-        def unsubscribe(sender, nodeIdentifier, recipient):
-            unsubscribed.append(None)
-        self.client.unsubscribe = unsubscribe
-        self.event.nodeIdentifier = 'unknown'
-
+        self.event.nodeIdentifier = u'unknown'
+        self.client.addObserver(self.observer)
         self.client.itemsReceived(self.event)
-        self.assertEquals(0, len(self.aggregator.notifications))
-        self.assertEquals(1, len(unsubscribed))
-
-    test_itemsReceivedNotifyUnknownUnsubscribe.skip = True
+        self.assertEquals(0, len(self.observer.events))
+        self.assertEquals(1, len(self.unsubscribeCalled))
 
 
     def test_itemsReceivedNotifyOtherResource(self):
         """
         Notifications sent to another JID are ignored.
         """
-        unsubscribed = []
-
-        def unsubscribe(sender, nodeIdentifier, recipient):
-            unsubscribed.append(None)
-        self.client.unsubscribe = unsubscribe
         self.event.recipient = JID('user@example.org/Other')
-
+        self.client.addObserver(self.observer)
         self.client.itemsReceived(self.event)
-        self.assertEquals(0, len(self.aggregator.notifications))
-        self.assertEquals(0, len(unsubscribed))
+        self.assertEquals(0, len(self.observer.events))
+        self.assertEquals(0, len(self.unsubscribeCalled))
 
-    test_itemsReceivedNotifyOtherResource.skip = True
 
 
 class TestNotifier(object):

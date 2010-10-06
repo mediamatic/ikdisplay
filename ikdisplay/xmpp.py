@@ -1,5 +1,6 @@
 # -*- test-case-name: ikdisplay.test.test_xmpp -*-
 
+from zope.interface import Attribute, Interface
 from twisted.internet import defer, reactor, task
 from twisted.python import log
 from twisted.words.protocols.jabber import error
@@ -12,17 +13,75 @@ from wokkel.ping import PingClientProtocol
 from wokkel.pubsub import Item, PubSubClient
 from wokkel.xmppim import MessageProtocol, PresenceProtocol
 
+from axiom import item, attributes
+
 NS_NOTIFICATION = 'http://mediamatic.nl/ns/ikdisplay/2009/notification'
 NS_X_DELAY='jabber:x:delay'
 NS_DELAY='urn:xmpp:delay'
+
+class JIDAttribute(attributes.text):
+    """
+    An in-database representation of a JID.
+
+    This translates between a L{JID} instance and its C{unicode} string
+    representation.
+    """
+
+    def infilter(self, pyval, oself, store):
+        if pyval is None:
+            return None
+
+        return attributes.text.infilter(self, pyval.full(), oself, store)
+
+    def outfilter(self, dbval, oself):
+        if dbval is None:
+            return None
+
+        return JID(dbval)
+
+# Allow this new attribute to be found when reading a store from disk.
+attributes.JIDAttribute = JIDAttribute
+
+
+
+class PubSubSubscription(item.Item):
+
+    service = JIDAttribute("""The entity holding the node""",
+                           )
+    nodeIdentifier = attributes.text("""The node identifier""",
+                                     default=u'')
+    state = attributes.text("""Subscription state.""")
+
+
+
+class IPubSubEventProcessor(Interface):
+    subscription = Attribute("""Reference to subscription""")
+
+    def itemsReceived(event):
+        """Called when an items event is available for processing."""
+
+
+    def installOnSubscription(other):
+        """Register this processor to a subscription."""
+
+
+    def uninstallFromSubscription(other):
+        """Register this processor to a subscription."""
+
+
+    def getNode():
+        """Return the pubsub node to subscribe to."""
+
+
 
 class PubSubClientFromAggregator(PubSubClient):
     """
     Publish-subscribe client that renders to notifications for aggregation.
     """
 
-    def __init__(self):
-        self._observers = {}
+    def __init__(self, store):
+        self.store = store
+
         self._initialized = False
 
 
@@ -36,15 +95,17 @@ class PubSubClientFromAggregator(PubSubClient):
 
         self._initialized = True
 
-        for service, nodeIdentifier in self._observers.iterkeys():
-            self.subscribe(service, nodeIdentifier, self.parent.jid)
+        subscriptions = self.store.query(PubSubSubscription)
+        for subscription in subscriptions:
+            self.subscribe(subscription.service, subscription.nodeIdentifier,
+                           self.parent.jid)
 
 
     def connectionLost(self, reason):
         self._initialized = False
 
 
-    def addObserver(self, observer, service, nodeIdentifier):
+    def addObserver(self, observer):
         """
         Add an observer for a subscription.
 
@@ -54,33 +115,48 @@ class PubSubClientFromAggregator(PubSubClient):
         If there is no connection, when the connection is established, all
         subscriptions will be requested.
         """
-        if (service, nodeIdentifier) not in self._observers:
-            self._observers[(service, nodeIdentifier)] = set()
+        service, nodeIdentifier = observer.getNode()
+        subscription = self.store.findOrCreate(PubSubSubscription,
+                                               service=service,
+                                               nodeIdentifier=nodeIdentifier)
+        observer.installOnSubscription(subscription)
 
-            if self._initialized:
-                d = self.subscribe(service, nodeIdentifier, self.parent.jid)
-                d.addErrback(log.err)
+        def setSubscriptionState(result, subscription):
+            subscription.state = result.state
 
-        self._observers[(service, nodeIdentifier)].add(observer)
+        if self._initialized and subscription.state is None:
+            d = self.subscribe(subscription.service,
+                               subscription.nodeIdentifier,
+                               self.parent.jid)
+            d.addCallback(setSubscriptionState, subscription)
+            d.addErrback(log.err)
 
 
-    def removeObserver(self, observer, service, nodeIdentifier):
+    def removeObserver(self, observer):
         """
         Remove an observer for a subscription.
 
         If this is the last observer, unsubscribe.
         """
 
-        try:
-            observers = self._observers[(service, nodeIdentifier)]
-            observers.remove(observer)
-        except KeyError:
+        subscription = observer.subscription
+        if not subscription:
             return
 
-        if not(observers):
-            del self._observers[service, nodeIdentifier]
+        observer.uninstallFromSubscription(subscription)
+
+        def clearSubscriptionState(result, subscription):
+            subscription.state = None
+
+        powerups = subscription.powerupsFor(IPubSubEventProcessor)
+        try:
+            powerups.next()
+        except StopIteration:
             if self._initialized:
-                d = self.unsubscribe(service, nodeIdentifier, self.parent.jid)
+                d = self.unsubscribe(subscription.service,
+                                     subscription.nodeIdentifier,
+                                     self.parent.jid)
+                d.addCallback(clearSubscriptionState, subscription)
                 d.addErrback(log.err)
 
 
@@ -106,14 +182,22 @@ class PubSubClientFromAggregator(PubSubClient):
             return
 
         try:
-            observers = self._observers[(event.sender, event.nodeIdentifier)]
+            subscription = self.store.findUnique(PubSubSubscription,
+                    attributes.AND(
+                        PubSubSubscription.service==event.sender,
+                        PubSubSubscription.nodeIdentifier==event.nodeIdentifier
+                        )
+                    )
         except KeyError:
-            # This was not for us.
+            log.msg("Got event from %r, node %r. Unsubscribing." % (
+                event.sender, event.nodeIdentifier))
+            self.unsubscribe(event.sender, event.nodeIdentifier,
+                             event.recipient)
             return
 
-        for observer in observers:
+        for observer in subscription.powerupsFor(IPubSubEventProcessor):
             try:
-                observer(event)
+                observer.itemsReceived(event)
             except Exception, e:
                 log.err(e)
 
