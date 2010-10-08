@@ -1,5 +1,3 @@
-import copy
-
 from twisted.application import service
 from twisted.python import log
 from twisted.web import client
@@ -11,6 +9,13 @@ from ikdisplay.source import ISource
 class Feed(item.Item):
     """
     A feed represents the aggregate stream of items of its sources.
+
+    To pass notifications onto an aggregator, a Service named C{'aggregator'}
+    must have been added as a subservice of the store the feed is stored in:
+
+        >>> agg = LoggingAggregator()
+        >>> agg.setName('aggregator')
+        >>> agg.setServiceParent(service.IService(store))
     """
 
     typeName = 'Feed'
@@ -20,11 +25,20 @@ class Feed(item.Item):
     language = attributes.text(default=u'en')
 
     def processNotifications(self, notifications):
-        pass
+        """
+        Send on notifications to the aggregator.
+
+        This finds the globally available aggregator service and passes it
+        the notifications using this feed's handle.
+        """
+        aggregator = service.IService(self.store).getServiceNamed('aggregator')
+        aggregator.processNotifications(self.handle, notifications)
+
 
     def getSources(self):
         """ The list of sources for this feed. """
         return list(self.powerupsFor(ISource))
+
 
     def getURI(self):
         return "xmpp:feeds.mediamatic.nl?node=" + self.handle
@@ -74,47 +88,19 @@ class Thing(item.Item):
 
 
 
-class BaseAggregator(service.MultiService):
-
-    feeds = None
-
-    def __init__(self, factory):
-        service.MultiService.__init__(self)
-        self.factory = factory
-
-    def addSource(self, feed, sourceConfig):
-        config = copy.copy(self.feeds[feed])
-        del config['sources']
-
-        callback = lambda notifications: \
-            self.processNotifications(feed, notifications)
-
-        config.update(sourceConfig)
-
-        formatter = self.factory.buildFormatter(config, callback)
-        formatter.setServiceParent(self)
-
-    def startService(self):
-        service.MultiService.startService(self)
-
-        for feed, config in self.feeds.iteritems():
-            for sourceConfig in config['sources']:
-                self.addSource(feed, sourceConfig)
-
-
-
-class LoggingAggregator(BaseAggregator):
+class LoggingAggregator(service.Service):
 
     def processNotifications(self, feed, notifications):
         for notification in notifications:
             log.msg("%s: %s" % (feed, notification))
 
 
-class PubSubAggregator(BaseAggregator):
+
+class PubSubAggregator(service.Service):
     pubsubService = None
 
-    def __init__(self, factory, service):
-        BaseAggregator.__init__(self, factory)
+    def __init__(self, service):
+        service.Service.__init__(self)
         self.service = service
 
 
