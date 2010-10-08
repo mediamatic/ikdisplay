@@ -44,6 +44,17 @@ attributes.JIDAttribute = JIDAttribute
 
 
 
+def getPubSubDomain(uri):
+    from urlparse import urlparse
+    hostname = urlparse(uri).hostname
+    if hostname[:4] == "www.":
+        hostname = hostname[4:]
+    if hostname[-6:] != '.local' and hostname.find('.test.') < 0:
+        hostname = 'pubsub.' + hostname
+    return hostname
+
+
+
 class PubSubSubscription(item.Item):
 
     service = JIDAttribute("""The entity holding the node""",

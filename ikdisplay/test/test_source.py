@@ -313,6 +313,15 @@ class StatusSourceTest(unittest.TestCase, PubSubSourceTests):
         self.assertIdentical(None, notification)
 
 
+    def test_getNodeSite(self):
+        """
+        A StatusSource for the whole site listens to the 'status' node.
+        """
+        service, nodeIdentifier = self.source.getNode()
+        self.assertEqual('pubsub.mediamatic.net', service)
+        self.assertEqual('status', nodeIdentifier)
+
+
 
 class TwitterSourceTest(unittest.TestCase, PubSubSourceTests):
     """

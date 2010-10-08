@@ -14,6 +14,33 @@ from axiom import attributes, item, store
 from wokkel import pubsub
 from ikdisplay import source, xmpp
 
+class GetPubSubDomainTest(unittest.TestCase):
+
+    def test_bare(self):
+        hostname = 'http://mediamatic.nl/'
+        self.assertEquals('pubsub.mediamatic.nl',
+                          xmpp.getPubSubDomain(hostname))
+
+
+    def test_withWWW(self):
+        hostname = 'http://www.mediamatic.nl/'
+        self.assertEquals('pubsub.mediamatic.nl',
+                          xmpp.getPubSubDomain(hostname))
+
+
+    def test_mdnsLocal(self):
+        hostname = 'http://dwaal.local/'
+        self.assertEquals('dwaal.local',
+                          xmpp.getPubSubDomain(hostname))
+
+
+    def test_testSite(self):
+        hostname = 'http://mml03.test.mediamatic.nl/'
+        self.assertEquals('mml03.test.mediamatic.nl',
+                          xmpp.getPubSubDomain(hostname))
+
+
+
 class TestAggregator(object):
     """
     A notifier that stores all notification in sequence.

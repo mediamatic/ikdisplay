@@ -50,14 +50,6 @@ class Site(item.Item):
     uri = attributes.text(allowNone=False)
 
 
-    def getPubSubDomain(self):
-        from urlparse import urlparse
-        hostname = urlparse(self.uri).hostname
-        if hostname[:4] == "www.":
-            hostname = hostname[4:]
-        return "pubsub." + hostname
-
-
 
 class Thing(item.Item):
     title = attributes.text()

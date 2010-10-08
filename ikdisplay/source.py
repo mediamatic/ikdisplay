@@ -7,7 +7,7 @@ from zope.interface import Attribute, Interface, implements
 from twisted.python import log, reflect
 from axiom import attributes, item
 
-from ikdisplay.xmpp import IPubSubEventProcessor, JIDAttribute
+from ikdisplay.xmpp import IPubSubEventProcessor, JIDAttribute, getPubSubDomain
 
 
 class ISource(Interface):
@@ -319,6 +319,11 @@ class StatusSource(PubSubSourceMixin, item.Item):
         return {'title': unicode(payload.person.title),
                 'subtitle': text,
                 'icon': unicode(payload.person.image)}
+
+
+    def getNode(self):
+        if self.site is not None:
+            return (getPubSubDomain(self.site.uri), 'status')
 
 
     def renderTitle(self):
