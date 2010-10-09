@@ -1,6 +1,5 @@
 from twisted.application import service
 from twisted.python import log
-from twisted.web import client
 
 from axiom import item, attributes
 

@@ -4,7 +4,10 @@ import re
 import random
 
 from zope.interface import Attribute, Interface, implements
+
 from twisted.python import log, reflect
+from twisted.web import client
+
 from axiom import attributes, item
 
 from ikdisplay.xmpp import IPubSubEventProcessor, JIDAttribute, getPubSubService
