@@ -14,30 +14,30 @@ from axiom import attributes, item, store
 from wokkel import pubsub
 from ikdisplay import source, xmpp
 
-class GetPubSubDomainTest(unittest.TestCase):
+class GetPubSubServiceTest(unittest.TestCase):
 
     def test_bare(self):
         hostname = 'http://mediamatic.nl/'
-        self.assertEquals('pubsub.mediamatic.nl',
-                          xmpp.getPubSubDomain(hostname))
+        self.assertEquals(JID('pubsub.mediamatic.nl'),
+                          xmpp.getPubSubService(hostname))
 
 
     def test_withWWW(self):
         hostname = 'http://www.mediamatic.nl/'
-        self.assertEquals('pubsub.mediamatic.nl',
-                          xmpp.getPubSubDomain(hostname))
+        self.assertEquals(JID('pubsub.mediamatic.nl'),
+                          xmpp.getPubSubService(hostname))
 
 
     def test_mdnsLocal(self):
         hostname = 'http://dwaal.local/'
-        self.assertEquals('dwaal.local',
-                          xmpp.getPubSubDomain(hostname))
+        self.assertEquals(JID('dwaal.local'),
+                          xmpp.getPubSubService(hostname))
 
 
     def test_testSite(self):
         hostname = 'http://mml03.test.mediamatic.nl/'
-        self.assertEquals('mml03.test.mediamatic.nl',
-                          xmpp.getPubSubDomain(hostname))
+        self.assertEquals(JID('mml03.test.mediamatic.nl'),
+                          xmpp.getPubSubService(hostname))
 
 
 

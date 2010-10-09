@@ -44,14 +44,14 @@ attributes.JIDAttribute = JIDAttribute
 
 
 
-def getPubSubDomain(uri):
+def getPubSubService(uri):
     from urlparse import urlparse
     hostname = urlparse(uri).hostname
     if hostname[:4] == "www.":
         hostname = hostname[4:]
     if hostname[-6:] != '.local' and hostname.find('.test.') < 0:
         hostname = 'pubsub.' + hostname
-    return hostname
+    return JID(hostname)
 
 
 

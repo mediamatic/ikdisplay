@@ -7,8 +7,7 @@ from zope.interface import Attribute, Interface, implements
 from twisted.python import log, reflect
 from axiom import attributes, item
 
-from ikdisplay.xmpp import IPubSubEventProcessor, JIDAttribute, getPubSubDomain
-
+from ikdisplay.xmpp import IPubSubEventProcessor, JIDAttribute, getPubSubService
 
 class ISource(Interface):
     """
@@ -121,6 +120,51 @@ class PubSubSourceMixin(SourceMixin):
 
     def format_payload(self, payload):
         raise NotImplementedError()
+
+
+
+class Site(item.Item):
+    title = attributes.text()
+    uri = attributes.text(allowNone=False)
+
+
+
+def getThingID(uri):
+    from urlparse import urlparse
+
+    path = urlparse(uri).path
+    match = re.match(r'^/id/(\d+)$', path)
+    return match.group(1)
+
+
+
+class Thing(item.Item):
+    title = attributes.text()
+    uri = attributes.text(allowNone=False)
+
+
+    def discoverCreate(cls, store, uri):
+        """ Perform discovery on the URL to get the title, and then create a thing. """
+        d = client.getPage(uri)
+        def parsePage(content):
+            from lxml.html.soupparser import fromstring
+            tree = fromstring(content)
+            h1 = tree.find(".//h1")
+            title = unicode((h1 is not None and h1.text) or "?")
+            slf = tree.find(".//link[@rel=\"self\"]")
+            newuri = unicode((slf is not None and slf.attrib["href"]) or uri)
+            return Thing(store=store, uri=newuri, title=title)
+        d.addCallback(parsePage)
+        return d
+    discoverCreate = classmethod(discoverCreate)
+
+
+    def getID(self):
+        """
+        Return the id of this thing.
+        """
+        return int(self.uri.split("/")[-1])
+
 
 
 
@@ -323,7 +367,7 @@ class StatusSource(PubSubSourceMixin, item.Item):
 
     def getNode(self):
         if self.site is not None:
-            return (getPubSubDomain(self.site.uri), 'status')
+            return (getPubSubService(self.site.uri), u'status')
 
 
     def renderTitle(self):
@@ -423,6 +467,18 @@ class IkCamSource(PubSubSourceMixin, item.Item):
                 'icon': u'http://docs.mediamatic.nl/images/ikcam-80x80.png',
                 'picture': unicode(pictureElement),
                 }
+
+    def getNode(self):
+        nodeIdentifier = 'ikcam/'
+        if self.creator:
+            service = getPubSubService(self.creator.uri)
+            nodeIdentifier += getThingID(self.creator.uri)
+        elif self.event:
+            service = getPubSubService(self.event.uri)
+            nodeIdentifier += 'by_event/' + getThingID(self.event.uri)
+
+        return service, nodeIdentifier
+
 
 
     def renderTitle(self):

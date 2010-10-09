@@ -71,6 +71,14 @@ class PubSubSourceTests(object):
 
 
 
+class GetThingIDTest(unittest.TestCase):
+
+    def test_good(self):
+        uri = u'http://mediamatic.nl/id/1'
+        self.assertEquals(u'1', source.getThingID(uri))
+
+
+
 class SimpleSourceTest(unittest.TestCase, PubSubSourceTests):
     """
     Tests for L{ikdisplay.source.SimpleSource}.
@@ -87,7 +95,7 @@ class VoteSourceTest(unittest.TestCase, PubSubSourceTests):
     """
 
     def setUp(self):
-        thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
+        thing = source.Thing(uri=u'http://www.mediamatic.net/id/160225')
         self.source = source.VoteSource(question=thing)
 
 
@@ -144,7 +152,7 @@ class PresenceSourceTest(unittest.TestCase, PubSubSourceTests):
     """
 
     def setUp(self):
-        thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
+        thing = source.Thing(uri=u'http://www.mediamatic.net/id/160225')
         self.source = source.PresenceSource(question=thing)
 
 
@@ -201,7 +209,7 @@ class IkMicSourceTest(unittest.TestCase, PubSubSourceTests):
     """
 
     def setUp(self):
-        thing = aggregator.Thing(uri=u'http://www.mediamatic.net/id/160225')
+        thing = source.Thing(uri=u'http://www.mediamatic.net/id/160225')
         self.source = source.IkMicSource(question=thing)
 
 
@@ -258,7 +266,7 @@ class StatusSourceTest(unittest.TestCase, PubSubSourceTests):
     """
 
     def setUp(self):
-        thing = aggregator.Site(uri=u'http://www.mediamatic.net/')
+        thing = source.Site(uri=u'http://www.mediamatic.net/')
         self.source = source.StatusSource(site=thing)
 
 
@@ -318,7 +326,7 @@ class StatusSourceTest(unittest.TestCase, PubSubSourceTests):
         A StatusSource for the whole site listens to the 'status' node.
         """
         service, nodeIdentifier = self.source.getNode()
-        self.assertEqual('pubsub.mediamatic.net', service)
+        self.assertEqual('pubsub.mediamatic.net', service.full())
         self.assertEqual('status', nodeIdentifier)
 
 
@@ -341,6 +349,25 @@ class IkCamSourceTest(unittest.TestCase, PubSubSourceTests):
     def setUp(self):
         self.source = source.IkCamSource()
 
+
+    def test_getNodeCreator(self):
+        """
+        An IkCamSource with a creator listens for ikcam pictures by creator.
+        """
+        self.source.creator = source.Thing(uri=u'http://example.org/id/1')
+        service, nodeIdentifier = self.source.getNode()
+        self.assertEqual(u'pubsub.example.org', service.full())
+        self.assertEqual(u'ikcam/1', nodeIdentifier)
+
+
+    def test_getNodeEvent(self):
+        """
+        An IkCamSource with an event listens for ikcam pictures taken there.
+        """
+        self.source.event = source.Thing(uri=u'http://example.org/id/2')
+        service, nodeIdentifier = self.source.getNode()
+        self.assertEqual(u'pubsub.example.org', service.full())
+        self.assertEqual(u'ikcam/by_event/2', nodeIdentifier)
 
 
 class RegDeskSourceTest(unittest.TestCase, PubSubSourceTests):

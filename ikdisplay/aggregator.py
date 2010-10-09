@@ -45,41 +45,6 @@ class Feed(item.Item):
 
 
 
-class Site(item.Item):
-    title = attributes.text()
-    uri = attributes.text(allowNone=False)
-
-
-
-class Thing(item.Item):
-    title = attributes.text()
-    uri = attributes.text(allowNone=False)
-
-
-    def discoverCreate(cls, store, uri):
-        """ Perform discovery on the URL to get the title, and then create a thing. """
-        d = client.getPage(uri)
-        def parsePage(content):
-            from lxml.html.soupparser import fromstring
-            tree = fromstring(content)
-            h1 = tree.find(".//h1")
-            title = unicode((h1 is not None and h1.text) or "?")
-            slf = tree.find(".//link[@rel=\"self\"]")
-            newuri = unicode((slf is not None and slf.attrib["href"]) or uri)
-            return Thing(store=store, uri=newuri, title=title)
-        d.addCallback(parsePage)
-        return d
-    discoverCreate = classmethod(discoverCreate)
-
-
-    def getID(self):
-        """
-        Return the id of this thing.
-        """
-        return int(self.uri.split("/")[-1])
-
-
-
 class LoggingAggregator(service.Service):
 
     def processNotifications(self, feed, notifications):
