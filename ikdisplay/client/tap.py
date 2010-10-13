@@ -2,14 +2,15 @@
 ikDisplay Live Stream service.
 """
 
-from twisted.application import strports
+from twisted.application import strports, service
 from twisted.python import usage
 from twisted.python.filepath import FilePath
 from twisted.words.protocols.jabber.jid import internJID as JID
 
 from anymeta import manhole
 
-from ikdisplay import notifier, xmpp
+from ikdisplay import xmpp
+from ikdisplay.client import notifier, gui
 
 STYLES = ('beamer', 'beamer_all', 'screen', 'screen_ikcam')
 
@@ -38,8 +39,7 @@ class Options(usage.Options):
     ]
 
     optFlags = [
-            ('verbose', 'v', 'Log traffic'),
-            ('gui', None, 'Show GTK dialog'),
+            ('verbose', 'v', 'Log traffic')
     ]
 
     def postOptions(self):
@@ -52,6 +52,8 @@ class Options(usage.Options):
 
 
 def makeService(config):
+
+    s = service.MultiService()
 
     title = "ikDisplay Live Stream"
 
@@ -66,7 +68,8 @@ def makeService(config):
     # Set up display web service
     #
 
-    s = notifier.makeService(config, title, controller)
+    ns = notifier.makeService(config, title, controller)
+    ns.setServiceParent(s)
 
     #
     #
@@ -83,6 +86,13 @@ def makeService(config):
 
     controller.producer = pc
 
+
+    #
+    # Set up GUI for accessing the page.
+    #
+    url = 'http://localhost:%d/' % int(config['webport'])
+    g = gui.DisplayGUI(title, url)
+    g.setServiceParent(s)
 
     #
     # Set up Manhole.

@@ -143,7 +143,6 @@ class VhostFakeRoot:
 
 
 def makeService(config, title, controller):
-    s = service.MultiService()
 
     # Set up web service.
     root = NotifierParentPage(controller, config['js'], config['page'])
@@ -166,15 +165,5 @@ def makeService(config, title, controller):
 
     notifierService = strports.service(config['webport'], site)
     notifierService.setName('notifier')
-    notifierService.setServiceParent(s)
 
-    # Set up GUI for accessing the page.
-
-    if config['gui']:
-        from ikdisplay import gui
-
-        url = 'http://localhost:%d/' % int(config['webport'])
-        g = gui.DisplayGUI(title, url)
-        g.setServiceParent(s)
-
-    return s
+    return notifierService
