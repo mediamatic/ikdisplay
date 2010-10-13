@@ -10,7 +10,7 @@ from twisted.python import failure, log
 from axiom import store, item, attributes
 from twisted.web.server import NOT_DONE_YET
 
-from ikdisplay.aggregator import Feed, Site, Thing
+from ikdisplay.aggregator import Feed
 from ikdisplay import source
 
 
@@ -102,6 +102,8 @@ class APIResource(resource.Resource):
     def __init__(self, store):
         resource.Resource.__init__(self)
         self.store = store
+        self.pubsubService = service.IService(self.store).getServiceNamed("pubsub")
+        self.twitterService = service.IService(self.store).getServiceNamed("twitter")
 
 
     def getChild(self, path, req):
@@ -113,7 +115,7 @@ class APIResource(resource.Resource):
 
     def api_sites(self, request):
         """ Get the list of all sites. """
-        return self.store.query(Site)
+        return self.store.query(source.Site)
 
 
     def api_feeds(self, request):
@@ -123,7 +125,7 @@ class APIResource(resource.Resource):
 
     def api_things(self, request):
         """ Get the list of all things. """
-        return self.store.query(Thing)
+        return self.store.query(source.Thing)
 
 
     def api_feed(self, request):
@@ -155,6 +157,10 @@ class APIResource(resource.Resource):
         del args['id']
         schema = dict(item.__class__.getSchema())
 
+        if source.IPubSubEventProcessor.providedBy(item):
+            oldNode = item.getNode()
+            oldEnabled = item.enabled
+
         # Map the update attributes
         for k in args.keys():
             if k not in schema:
@@ -172,9 +178,14 @@ class APIResource(resource.Resource):
             setattr(item, k, value)
 
         # Update the item
-        if source.IPubSubEventProcessor.providedBy(item):
-            # FIXME: call the pubsub service to fix stuff.
-            pass
+        if (source.IPubSubEventProcessor.providedBy(item) and
+            (oldNode != source.getNode or oldEnabled != item.enabled)):
+            # Call the pubsub service to fix stuff.
+            self.pubsubService.removeObserver(item)
+            self.pubsubService.addObserver(item)
+
+        if source.__class__ == source.TwitterSource:
+            self.twitterService.consumer.refreshItems()
 
         return item
 
@@ -203,7 +214,7 @@ class APIResource(resource.Resource):
 
     def api_addSite(self, request):
         """ Adds a new, unnamed site. Returns the feed item. """
-        site = Site(store=self.store, title=u"Untitled site", uri=u"http://...")
+        site = source.Site(store=self.store, title=u"Untitled site", uri=u"http://...")
         return site
 
 
@@ -224,7 +235,7 @@ class APIResource(resource.Resource):
     def api_addThing(self, request):
         """ Adds a new thing with a {uri}. Returns the thing item. """
         uri = request.args["uri"][0]
-        return Thing.discoverCreate(self.store, uri)
+        return source.Thing.discoverCreate(self.store, uri)
 
 
 
