@@ -382,41 +382,47 @@ class StatusSource(PubSubSourceMixin, item.Item):
         return s
 
 
-class TwitterSource(PubSubSourceMixin, item.Item):
+class TwitterSource(SourceMixin, item.Item):
     title = "Twitter"
 
     feed = attributes.reference()
     enabled = attributes.boolean()
     via = attributes.text()
-    subscription = attributes.reference()
     terms = attributes.textlist()
     userIDs = attributes.textlist()
 
-    def format_payload(self, payload):
-        text = unicode(payload.text)
+    def onEntry(self, entry):
+        notification = self.format(entry)
+        if notification:
+            self.feed.processNotifications([notification])
 
-        if ('terms' not in self.config and
-            'userIDs' not in self.config):
+
+    def format(self, status):
+        if (not self.terms and
+            not self.userIDs):
             match = True
         else:
             match = False
 
-            for term in self.config.get('terms', ()):
-                if re.search(term, text, re.IGNORECASE):
+            for term in self.terms:
+                if re.search(term, status.text, re.IGNORECASE):
                     match = True
 
-            if 'userIDs' in self.config:
-                userID = unicode(payload.user.id)
-                match = match or (userID in self.config['userIDs'])
+            if self.userIDs:
+                userID = status.user.id
+                match = match or (userID in self.userIDs)
 
         if match:
-            return {'title': unicode(payload.user.screen_name),
-                    'subtitle': text,
-                    'icon': unicode(payload.user.profile_image_url),
+            return {'title': status.user.screen_name,
+                    'subtitle': status.text,
+                    'icon': status.user.profile_image_url,
                     }
 
+
     def renderTitle(self):
-        return "%s (%d terms, %d users)" % (self.title, len(self.terms or []), len(self.userIDs or []))
+        return "%s (%d terms, %d users)" % (self.title,
+                                            len(self.terms or []),
+                                            len(self.userIDs or []))
 
 
 
@@ -448,6 +454,7 @@ class IkCamSource(PubSubSourceMixin, item.Item):
             }
 
     def format_payload(self, payload):
+        texts = self.texts[self.feed.language]
 
         participants = [unicode(element)
                         for element in payload.participants.elements()
@@ -456,12 +463,12 @@ class IkCamSource(PubSubSourceMixin, item.Item):
         if not participants:
             return
         elif len(participants) == 1:
-            subtitle = self.texts['ikcam_picture_singular']
+            subtitle = texts['ikcam_picture_singular']
         else:
-            subtitle = self.texts['ikcam_picture_plural']
+            subtitle = texts['ikcam_picture_plural']
 
         if payload.event:
-            subtitle += self.texts['ikcam_event'] % unicode(payload.event.title)
+            subtitle += texts['ikcam_event'] % unicode(payload.event.title)
 
         pictureElement = payload.picture.attachment_uri or payload.picture.rsc_uri
 

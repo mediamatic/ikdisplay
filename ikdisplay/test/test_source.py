@@ -331,13 +331,20 @@ class StatusSourceTest(unittest.TestCase, PubSubSourceTests):
 
 
 
-class TwitterSourceTest(unittest.TestCase, PubSubSourceTests):
+class TwitterSourceTest(unittest.TestCase):
     """
     Tests for L{ikdisplay.source.TwitterSource}.
     """
 
     def setUp(self):
         self.source = source.TwitterSource()
+
+
+    def test_interfaceISource(self):
+        """
+        Does this source provide L{source.ISource}?
+        """
+        verify.verifyObject(source.ISource, self.source)
 
 
 
@@ -369,6 +376,29 @@ class IkCamSourceTest(unittest.TestCase, PubSubSourceTests):
         self.assertEqual(u'pubsub.example.org', service.full())
         self.assertEqual(u'ikcam/by_event/2', nodeIdentifier)
 
+    def test_formatPayload(self):
+        xml = """
+<notification xmlns="http://mediamatic.nl/ns/ikcam/2009/notification">
+  <participants>
+    <participant>After Midnight</participant>
+  </participants>
+  <title_template>%(names)s bij Noord</title_template>
+  <body_template>Deze foto is genomen bij de tentoonstelling Noord van Mediamatic.</body_template>
+  <event>
+    <title>Noord exhibition</title>
+    <id>162070</id>
+  </event>
+  <picture>
+    <thg_id>163884</thg_id>
+    <rsc_uri>http://www.mediamatic.net/id/163884</rsc_uri>
+    <attachment_uri>http://fast.mediamatic.nl/f/sjnh/image/734/163884-600-480.jpg</attachment_uri>
+  </picture>
+</notification>
+        """
+        notification = formatPayload(self.source, xml)
+        self.assertEquals(u'After Midnight', notification['title'])
+        self.assertEquals(u'took a self-portrait at Noord exhibition',
+                          notification['subtitle'])
 
 class RegDeskSourceTest(unittest.TestCase, PubSubSourceTests):
     """
