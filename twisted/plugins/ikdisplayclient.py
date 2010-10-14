@@ -8,4 +8,4 @@ IkDisplay = ServiceMaker(
     "ikDisplayClient",
     "ikdisplay.client.tap",
     "ikDisplay client",
-    "ikdisplayclient")
+    "ikdisplay-client")
