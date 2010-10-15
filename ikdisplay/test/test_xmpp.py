@@ -79,7 +79,7 @@ class TestObserver(source.PubSubSourceMixin, item.Item):
 
 
 
-class PubSubClientFromAggregatorTest(unittest.TestCase):
+class PubSubDispatcherTest(unittest.TestCase):
 
     def setUp(self):
         self.jid = JID('user@example.org/Home')
@@ -103,7 +103,7 @@ class PubSubClientFromAggregatorTest(unittest.TestCase):
 
         xmlstream = utility.EventDispatcher()
         self.store = store.Store()
-        self.client = xmpp.PubSubClientFromAggregator(self.store)
+        self.client = xmpp.PubSubDispatcher(self.store)
         self.client.subscribe = subscribe
         self.client.unsubscribe = unsubscribe
         self.client.parent = self

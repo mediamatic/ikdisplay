@@ -85,7 +85,7 @@ class IPubSubEventProcessor(Interface):
 
 
 
-class PubSubClientFromAggregator(PubSubClient):
+class PubSubDispatcher(PubSubClient):
     """
     Publish-subscribe client that renders to notifications for aggregation.
     """
