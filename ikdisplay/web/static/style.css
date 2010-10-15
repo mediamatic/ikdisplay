@@ -1,0 +1,67 @@
+body {
+    background-color: #ddd;
+    font-family: Helvetica, Arial, sans-serif;
+}
+
+
+#page {
+    background-color: white;
+    padding: 40px;
+    width: 720px;
+    margin: auto;
+    margin-top: 80px;
+    position:relative;
+    -moz-box-shadow: 0px 0px 40px #aaa;
+    -webkit-box-shadow: 0px 0px 40px #aaa;
+    box-shadow: 0px 0px 40px #aaa;
+}
+
+#page h1.header {
+    position: absolute;
+    top: -44px; left: 0;
+    font-family: georgia;
+    font-size: 40px;
+    font-style: italic;
+    font-weight: normal;
+    color: white;
+}
+
+p, h1, table.list {
+    margin-bottom: 20px;
+}
+
+a { color: black; text-decoration: none; }
+a:hover { background-color: #ddd; }
+
+table.list {
+    width: 100%;
+}
+
+table.list th {
+    padding: 4px;
+    border-bottom: 2px solid black;
+    font-weight: bold;
+}
+
+table.list td {
+    padding: 4px;
+    font-size: 80%;
+    border-bottom: 1px solid #aaa;
+}
+
+table.list td:first-child {
+    border-left: 1px solid #aaa;
+}
+
+table.list td:last-child {
+    width: 80px;
+    border-right: 1px solid #aaa;
+}
+
+table.list tr.disabled td {
+    color: #aaa;
+}
+
+table.list tr.disabled td a {
+    color: #999;
+}
