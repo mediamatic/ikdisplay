@@ -1,10 +1,10 @@
 <h1>Feeds</h1>
 
-<table border="1">
+<table class="list feeds">
     <tr>
         <th>Feed name</th>
         <th>URI</th>
-        <th>&nbsp;</th>
+        <th class="actions">&nbsp;</th>
     </tr>
     
     {.repeated section @}

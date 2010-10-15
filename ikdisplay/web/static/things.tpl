@@ -1,10 +1,10 @@
 <h1>Things</h1>
 
-<table border="1">
+<table class="list things">
     <tr>
         <th>Title</th>
         <th>URI</th>
-        <th>&nbsp;</th>
+        <th class="actions">&nbsp;</th>
     </tr>
     
     {.repeated section @}

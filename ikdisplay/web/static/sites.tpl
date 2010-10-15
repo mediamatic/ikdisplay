@@ -1,10 +1,10 @@
 <h1>Sites</h1>
 
-<table border="1">
+<table class="list sites">
     <tr>
         <th>Site name</th>
         <th>URI</th>
-        <th>&nbsp;</th>
+        <th class="actions">&nbsp;</th>
     </tr>
     
     {.repeated section @}

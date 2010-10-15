@@ -1,11 +1,11 @@
 <h1>{title}</h1>
 
-<table border="1">
+<table class="list sources">
     <tr>
-        <th>&nbsp;</th>
+        <th class="check">&nbsp;</th>
         <th>Title</th>
         <th>Type</th>
-        <th>&nbsp;</th>
+        <th class="actions">&nbsp;</th>
     </tr>
     {.repeated section sources}
     <tr class="{.section enabled}enabled{.or}disabled{.end}">
