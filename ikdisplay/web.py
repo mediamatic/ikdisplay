@@ -27,6 +27,8 @@ class ProtectedResource(resource.Resource):
 
 class Encoder(json.JSONEncoder):
     def default(self, obj):
+        if hasattr(obj, 'full'):
+            return unicode(obj)
         if isinstance(obj, store.ItemQuery):
             return list(obj)
         if isinstance(obj, item.Item):
@@ -99,11 +101,11 @@ class APIMethod(ProtectedResource):
 
 class APIResource(resource.Resource):
 
-    def __init__(self, store):
+    def __init__(self, store, pubsubDispatcher, twitterDispatcher):
         resource.Resource.__init__(self)
         self.store = store
-        self.pubsubService = service.IService(self.store).getServiceNamed("pubsub")
-        self.twitterService = service.IService(self.store).getServiceNamed("twitter")
+        self.pubsubDispatcher = pubsubDispatcher
+        self.twitterDispatcher = twitterDispatcher
 
 
     def getChild(self, path, req):
@@ -179,13 +181,13 @@ class APIResource(resource.Resource):
 
         # Update the item
         if (source.IPubSubEventProcessor.providedBy(item) and
-            (oldNode != source.getNode or oldEnabled != item.enabled)):
+            (oldNode != item.getNode or oldEnabled != item.enabled)):
             # Call the pubsub service to fix stuff.
-            self.pubsubService.removeObserver(item)
-            self.pubsubService.addObserver(item)
+            self.pubsubDispatcher.removeObserver(item)
+            self.pubsubDispatcher.addObserver(item)
 
-        if source.__class__ == source.TwitterSource:
-            self.twitterService.consumer.refreshItems()
+        if hasattr(item, 'terms') and hasattr(item, 'userIDs'):
+            self.twitterDispatcher.refreshFilters()
 
         return item
 
@@ -252,7 +254,7 @@ print Index()
 rootResource = resource.Resource()
 rootResource.putChild('', Index())
 rootResource.putChild('static', static.File("ikdisplay/web/static"))
-rootResource.putChild('api', APIResource(st))
+rootResource.putChild('api', APIResource(st, None, None))
 
 application = service.Application("Feeds configuration")
 strports.service("8080", server.Site(rootResource)).setServiceParent(application)
