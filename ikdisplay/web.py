@@ -16,9 +16,14 @@ from ikdisplay import source
 
 class ProtectedResource(resource.Resource):
 
+    def __init__(self, password):
+        resource.Resource.__init__(self)
+        self.password = password
+
+
     def render(self, request):
         request.setHeader('WWW-Authenticate', 'Basic realm="Test realm"')
-        if request.getUser() != "admin" or request.getPassword() != "admin":
+        if request.getUser() != "admin" or request.getPassword() != self.password:
             request.setResponseCode(http.UNAUTHORIZED)
             request.setHeader('WWW-Authenticate', 'Basic realm="Test realm"')
             return static.Data("<body><h1>Unauthorized</h1></body>\n", "text/html").render(request)
@@ -49,8 +54,8 @@ class NotFound(Exception):
 
 class APIMethod(ProtectedResource):
 
-    def __init__(self, fun):
-        ProtectedResource.__init__(self)
+    def __init__(self, fun, pw):
+        ProtectedResource.__init__(self, pw)
         self.fun = fun
 
 
@@ -101,9 +106,10 @@ class APIMethod(ProtectedResource):
 
 class APIResource(resource.Resource):
 
-    def __init__(self, store, pubsubDispatcher, twitterDispatcher):
+    def __init__(self, store, pubsubDispatcher, twitterDispatcher, password):
         resource.Resource.__init__(self)
         self.store = store
+        self.password = password
         self.pubsubDispatcher = pubsubDispatcher
         self.twitterDispatcher = twitterDispatcher
 
@@ -111,7 +117,7 @@ class APIResource(resource.Resource):
     def getChild(self, path, req):
         method = 'api_%s' % (path.replace('.', '_'))
         if hasattr(self, method):
-            return APIMethod(getattr(self, method))
+            return APIMethod(getattr(self, method), self.password)
         return resource.NoResource()
 
 
@@ -241,20 +247,6 @@ class APIResource(resource.Resource):
 
 
 
-
-st = store.Store("/tmp/foo")
-
 class Index(ProtectedResource):
     def render_GET(self, request):
         return static.File("ikdisplay/web/index.html").render_GET(request)
-
-
-print Index()
-
-rootResource = resource.Resource()
-rootResource.putChild('', Index())
-rootResource.putChild('static', static.File("ikdisplay/web/static"))
-rootResource.putChild('api', APIResource(st, None, None))
-
-application = service.Application("Feeds configuration")
-strports.service("8080", server.Site(rootResource)).setServiceParent(application)

@@ -57,7 +57,7 @@ class TwitterFeedWithFactory(twitter.TwitterFeed):
         return downloadPageWithFactory(url,
                                        txml.HoseFeed(delegate),
                                        agent=self.agent,
-                                       headers=self._makeAuthHeader())
+                                       headers=self._makeAuthHeader("GET", url, args))
 
 
 class TwitterMonitor(service.Service):
