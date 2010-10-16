@@ -51,47 +51,68 @@ class Options(usage.Options):
 
 
 
-def makeService(config):
 
-    s = service.MultiService()
+class ClientService (service.MultiService):
 
     title = "ikDisplay Live Stream"
 
-    commonPath = FilePath(notifier.__file__).sibling('common')
-    config['page'] = commonPath.child('livestream_%s.html' % config['style'])
-    config['js'] = commonPath.child('js')
-    config['static'] =commonPath.child('static')
+    controller = None
+    notifier = None
+    xmppClient = None
+    pubsubClient = None
+    
 
-    controller = notifier.NotifierController()
+    def __init__(self, config):
+        service.MultiService.__init__(self)
+        self.config = config
 
-    #
-    # Set up display web service
-    #
+        self.commonPath = FilePath(notifier.__file__).sibling('common')
+        self.config['js'] = self.commonPath.child('js')
+        self.config['static'] = self.commonPath.child('static')
 
-    ns = notifier.makeService(config, title, controller)
-    ns.setServiceParent(s)
+        # Set up XMPP service.
+        self.xmppService = xmpp.makeService(config)
+        self.xmppService.setServiceParent(self)
 
-    #
-    #
-    # Set up XMPP service.
-    #
 
-    xmppService = xmpp.makeService(config)
-    xmppService.setServiceParent(s)
+    def startStream(self, service, node, style):
 
-    # Set up PubSubClient for receiving notifications.
-    pc = xmpp.PubSubClientFromNotifier(controller, config['service'],
-                                                   config['node'])
-    pc.setHandlerParent(xmppService)
+        self.service = service
+        self.node = node
+        self.style = style
 
-    controller.producer = pc
+        if self.notifier:
+            # Service has been started already; stop first
+            self.notifier.disownServiceParent()
+            self.pubsubClient.disownHandlerParent(self.xmppService)
 
+        # Set up display web service
+        pagePath = self.commonPath.child('livestream_%s.html' % style)
+        self.controller = notifier.NotifierController()
+        self.notifier = notifier.makeService(self.config, self.title, self.controller, pagePath)
+        self.notifier.setServiceParent(self)
+
+        # Set up PubSubClient for receiving notifications.
+        self.pubsubClient = xmpp.PubSubClientFromNotifier(self.controller, service, node)
+        self.pubsubClient.setHandlerParent(self.xmppService)
+
+        # Tie together
+        self.controller.producer = self.pubsubClient
+
+
+
+
+def makeService(config):
+
+    s = ClientService(config)
+
+    s.startStream(config['service'], config['node'], config['style'])
 
     #
     # Set up GUI for accessing the page.
     #
     url = 'http://localhost:%d/' % int(config['webport'])
-    g = gui.DisplayGUI(title, url)
+    g = gui.DisplayGUI(s.title, url)
     g.setServiceParent(s)
 
     #
@@ -99,9 +120,9 @@ def makeService(config):
     #
 
     namespace = {
-        'controller': controller,
+        'controller': s.controller,
         'notifier': s.getServiceNamed('notifier'),
-        'xmpp': xmppService,
+        'xmpp': s.xmppService,
         }
 
     manholeFactory = manhole.getFactory(namespace, admin='admin')

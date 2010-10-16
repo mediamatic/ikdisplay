@@ -142,10 +142,10 @@ class VhostFakeRoot:
 
 
 
-def makeService(config, title, controller):
+def makeService(config, title, controller, pagePath):
 
     # Set up web service.
-    root = NotifierParentPage(controller, config['js'], config['page'])
+    root = NotifierParentPage(controller, config['js'], pagePath)
     root.child_static = File(config['static'].path)
 
     proxyPath = config.get('proxyPath', None)
