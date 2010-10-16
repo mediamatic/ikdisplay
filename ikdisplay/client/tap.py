@@ -74,6 +74,9 @@ class ClientService (service.MultiService):
         self.xmppService = xmpp.makeService(config)
         self.xmppService.setServiceParent(self)
 
+        # The controller
+        self.controller = notifier.NotifierController()
+
 
     def startStream(self, service, node, style):
 
@@ -81,23 +84,32 @@ class ClientService (service.MultiService):
         self.node = node
         self.style = style
 
+        self.controller.reloadAll()
+
+        def start():
+            # Set up display web service
+            pagePath = self.commonPath.child('livestream_%s.html' % style)
+            self.notifier = notifier.makeService(self.config, self.title, self.controller, pagePath)
+            self.notifier.setServiceParent(self)
+
+            # Set up PubSubClient for receiving notifications.
+            self.pubsubClient = xmpp.PubSubClientFromNotifier(self.controller, service, node)
+            self.pubsubClient.setHandlerParent(self.xmppService)
+
+            # Tie together
+            self.controller.producer = self.pubsubClient
+
+
         if self.notifier:
             # Service has been started already; stop first
-            self.notifier.disownServiceParent()
             self.pubsubClient.disownHandlerParent(self.xmppService)
-
-        # Set up display web service
-        pagePath = self.commonPath.child('livestream_%s.html' % style)
-        self.controller = notifier.NotifierController()
-        self.notifier = notifier.makeService(self.config, self.title, self.controller, pagePath)
-        self.notifier.setServiceParent(self)
-
-        # Set up PubSubClient for receiving notifications.
-        self.pubsubClient = xmpp.PubSubClientFromNotifier(self.controller, service, node)
-        self.pubsubClient.setHandlerParent(self.xmppService)
-
-        # Tie together
-        self.controller.producer = self.pubsubClient
+            d = self.notifier.disownServiceParent()
+            if d:
+                d.addCallback(lambda _: start())
+            else:
+                start()
+        else:
+            start()
 
 
 

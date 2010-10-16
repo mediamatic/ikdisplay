@@ -105,7 +105,6 @@ class NotifierController(object):
         """
         Send notification to all listening pages.
         """
-
         for page in self.pages:
             page.gotNotification(notification)
 
@@ -115,6 +114,14 @@ class NotifierController(object):
             return self.producer.getHistory()
         else:
             return defer.succeed([])
+
+
+    def reloadAll(self):
+        """
+        Reloads the connected pages because the configuration changed.
+        """
+        for page in self.pages:
+            page.element.callRemote('reload')
 
 
 
