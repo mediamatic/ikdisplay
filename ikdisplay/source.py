@@ -621,10 +621,11 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
         actorTitle = unicode(generateElementsNamed(payload.author.elements(),
                                                    'name').next())
 
-        actorURI = unicode(payload.author.uri)
+        actorURI = unicode(generateElementsNamed(payload.author.elements(),
+                                                   'uri').next())
         match = re.match(r'^(http://[^/]+)/id/(\d+)$', actorURI)
         if match:
-            figureURI = match.expand('\1/figure/\2?width=80&height=80')
+            figureURI = match.expand(r'\1/figure/\2?width=80&height=80')
         else:
             figureURI = None
 

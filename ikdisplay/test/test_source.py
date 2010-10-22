@@ -490,6 +490,8 @@ class ActivityStreamTest(unittest.TestCase, PubSubSourceTests):
         self.assertEquals(u'Ralph Meijer', notification['title'])
         self.assertEquals(u'posted Birgit Meijer',
                           notification['subtitle'])
+        self.assertEquals(u'http://dwaal.local/figure/80?width=80&height=80',
+                          notification['icon'])
 
 
     def test_formatPayloadUpdate(self):
