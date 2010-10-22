@@ -266,8 +266,8 @@ class StatusSourceTest(unittest.TestCase, PubSubSourceTests):
     """
 
     def setUp(self):
-        thing = source.Site(uri=u'http://www.mediamatic.net/')
-        self.source = source.StatusSource(site=thing)
+        site = source.Site(uri=u'http://www.mediamatic.net/')
+        self.source = source.StatusSource(site=site)
 
 
     def test_formatPayload(self):
@@ -376,6 +376,7 @@ class IkCamSourceTest(unittest.TestCase, PubSubSourceTests):
         self.assertEqual(u'pubsub.example.org', service.full())
         self.assertEqual(u'ikcam/by_event/2', nodeIdentifier)
 
+
     def test_formatPayload(self):
         xml = """
 <notification xmlns="http://mediamatic.nl/ns/ikcam/2009/notification">
@@ -417,3 +418,112 @@ class RaceSourceTest(unittest.TestCase, PubSubSourceTests):
 
     def setUp(self):
         self.source = source.RaceSource()
+
+
+
+class ActivityStreamTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.ActivityStreamSource}.
+    """
+
+    def setUp(self):
+        site = source.Site(uri=u'http://dwaal.local/')
+        self.source = source.ActivityStreamSource(site=site)
+
+
+    def test_formatPayloadTag(self):
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2010-10-22T15:12:55+02:00</published>
+  <updated>2010-10-22T15:12:55+02:00</updated>
+  <id>http://dwaal.local/activity/80/15</id>
+  <title type="html">Ralph Meijer tagde Birgit Meijer in Test artikel</title>
+  <link href="http://dwaal.local/id/99" type="text/html" rel="alternate"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://activitystrea.ms/schema/1.0/tag</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://dwaal.local/id/99</id>
+    <title xmlns="http://www.w3.org/2005/Atom">Birgit Meijer</title>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </object>
+  <target xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://dwaal.local/id/83</id>
+    <title xmlns="http://www.w3.org/2005/Atom">Test artikel</title>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/article</object-type>
+  </target>
+  <author>
+    <id>http://dwaal.local/id/80</id>
+    <uri>http://dwaal.local/id/80</uri>
+    <name>Ralph Meijer</name>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </author>
+</entry>"""
+
+        notification = formatPayload(self.source, xml)
+        self.assertEquals(u'Ralph Meijer', notification['title'])
+        self.assertEquals(u'tagged Birgit Meijer in Test artikel',
+                          notification['subtitle'])
+
+
+    def test_formatPayloadPost(self):
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2010-10-22T15:12:55+02:00</published>
+  <updated>2010-10-22T15:12:55+02:00</updated>
+  <id>http://dwaal.local/activity/80/14</id>
+  <title type="html">Ralph Meijer maakte Birgit Meijer</title>
+  <link href="http://dwaal.local/id/99" type="text/html" rel="alternate"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://activitystrea.ms/schema/1.0/post</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://dwaal.local/id/99</id>
+    <title xmlns="http://www.w3.org/2005/Atom">Birgit Meijer</title>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </object>
+  <author>
+    <id>http://dwaal.local/id/80</id>
+    <uri>http://dwaal.local/id/80</uri>
+    <name>Ralph Meijer</name>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </author>
+</entry>"""
+
+        notification = formatPayload(self.source, xml)
+        self.assertEquals(u'Ralph Meijer', notification['title'])
+        self.assertEquals(u'posted Birgit Meijer',
+                          notification['subtitle'])
+
+
+    def test_formatPayloadUpdate(self):
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2010-10-22T16:37:42+02:00</published>
+  <updated>2010-10-22T16:37:42+02:00</updated>
+  <id>http://dwaal.local/activity/80/16</id>
+  <title type="html">Ralph Meijer paste Birgit Meijer! aan</title>
+  <link href="http://dwaal.local/id/99" type="text/html" rel="alternate"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://activitystrea.ms/schema/1.0/update</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://dwaal.local/id/99</id>
+    <title xmlns="http://www.w3.org/2005/Atom">Birgit Meijer</title>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </object>
+  <author>
+    <id>http://dwaal.local/id/80</id>
+    <uri>http://dwaal.local/id/80</uri>
+    <name>Ralph Meijer</name>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </author>
+</entry>"""
+
+        notification = formatPayload(self.source, xml)
+        self.assertEquals(u'Ralph Meijer', notification['title'])
+        self.assertEquals(u'updated Birgit Meijer',
+                          notification['subtitle'])
+
+
+    def test_getNodeSite(self):
+        """
+        A ActivityStreamSource for a site listens to the 'activity' node.
+        """
+        service, nodeIdentifier = self.source.getNode()
+        self.assertEqual('dwaal.local', service.full())
+        self.assertEqual('activity', nodeIdentifier)

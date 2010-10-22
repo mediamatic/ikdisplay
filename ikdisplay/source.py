@@ -576,6 +576,81 @@ class RaceSource(PubSubSourceMixin, item.Item):
 
 
 
+NS_ACTIVITY_SCHEMA = 'http://activitystrea.ms/schema/1.0/'
+
+class ActivityStreamSource(PubSubSourceMixin, item.Item):
+    title = "Activity Stream"
+
+    feed = attributes.reference()
+    enabled = attributes.boolean()
+    via = attributes.text()
+    subscription = attributes.reference()
+    site = attributes.reference("""
+    Reference to the site representing where activities occur.
+    """)
+    actor = attributes.reference("""
+    Reference to the thing representing the actor of the activities.
+    """)
+
+    TEXTS_NL = {
+            }
+    TEXTS_EN = {
+            'activity_verbs': {
+                NS_ACTIVITY_SCHEMA + 'post': 'posted %s',
+                NS_ACTIVITY_SCHEMA + 'like': 'liked %s',
+                NS_ACTIVITY_SCHEMA + 'tag': 'tagged %s in %s',
+                NS_ACTIVITY_SCHEMA + 'make-friend': 'friended %s',
+                NS_ACTIVITY_SCHEMA + 'update': 'updated %s',
+                NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'will attend %s',
+                }
+            }
+
+    activitiesWithTarget = (
+        NS_ACTIVITY_SCHEMA + 'tag',
+        )
+
+    def format_payload(self, payload):
+        verb = unicode(payload.verb)
+
+        try:
+            template = self.texts[self.feed.language]['activity_verbs'][verb]
+        except KeyError:
+            return
+
+        from twisted.words.xish.domish import generateElementsNamed
+        actorTitle = unicode(generateElementsNamed(payload.author.elements(),
+                                                   'name').next())
+
+        actorURI = unicode(payload.author.uri)
+        match = re.match(r'^(http://[^/]+)/id/(\d+)$', actorURI)
+        if match:
+            figureURI = match.expand('\1/figure/\2?width=80&height=80')
+        else:
+            figureURI = None
+
+        objectTitle = unicode(payload.object.title)
+
+        if verb in self.activitiesWithTarget:
+            targetTitle = unicode(payload.target.title)
+            subtitle = template % (objectTitle, targetTitle)
+        else:
+            subtitle = template % (objectTitle,)
+
+        return {'title': actorTitle,
+                'subtitle': subtitle,
+                'icon': figureURI}
+
+
+    def getNode(self):
+        if self.site is not None:
+            return (getPubSubService(self.site.uri), u'activity')
+
+
+    def renderTitle(self):
+        return "%s for %s" % (self.title, self.site.title)
+
+
+
 allSources = [
     SimpleSource,
     VoteSource,
