@@ -78,6 +78,8 @@ class NotifierParentPage(LivePage):
 
 
     def gotNotification(self, notification):
+        notification = dict(((unicode(key), unicode(value))
+                             for key, value in notification.iteritems()))
         self.queue.put(notification)
 
 
