@@ -44,7 +44,7 @@ class NotifierParentPage(LivePage):
         if hasattr(controller, 'getHistory'):
             def cb(notifications):
                 for notification in notifications:
-                    self.queue.put(notification)
+                    self.gotNotification(notification)
 
             d = controller.getHistory()
             d.addCallback(cb)
