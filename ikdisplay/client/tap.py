@@ -4,7 +4,6 @@ ikDisplay Live Stream service.
 
 from twisted.application import strports, service
 from twisted.python import usage
-from twisted.python.filepath import FilePath
 from twisted.words.protocols.jabber.jid import internJID as JID
 
 from anymeta import manhole
@@ -57,18 +56,13 @@ def makeService(config):
 
     title = "ikDisplay Live Stream"
 
-    commonPath = FilePath(notifier.__file__).sibling('common')
-    config['page'] = commonPath.child('livestream_%s.html' % config['style'])
-    config['js'] = commonPath.child('js')
-    config['static'] =commonPath.child('static')
-
-    controller = notifier.NotifierController()
+    controller = notifier.NotifierController(config['style'])
 
     #
     # Set up display web service
     #
 
-    ns = notifier.makeService(config, title, controller)
+    ns = notifier.makeService(config, controller)
     ns.setServiceParent(s)
 
     #

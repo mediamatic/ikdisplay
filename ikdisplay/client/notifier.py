@@ -1,13 +1,16 @@
 from zope.interface import implements
 
-from twisted.application import service, strports
+from twisted.application import strports
 from twisted.internet import defer, reactor
+from twisted.python.filepath import FilePath
 
-from nevow import inevow, rend, vhost
+from nevow import inevow, vhost
 from nevow.appserver import NevowSite
 from nevow.athena import LivePage, LiveElement
 from nevow.loaders import xmlfile
 from nevow.static import File
+
+commonPath = FilePath(__file__).sibling('common')
 
 class NotifierElement(LiveElement):
     """
@@ -28,17 +31,21 @@ class NotifierParentPage(LivePage):
 
     TRANSPORT_IDLE_TIMEOUT = 60
 
-    def __init__(self, controller, jsPath, pagePath):
+    def __init__(self, controller, style):
         LivePage.__init__(self)
         self.controller = controller
-        self.jsPath = jsPath
-        self.pagePath = pagePath
 
         self.element = None
         self.queue = defer.DeferredQueue()
-        self.jsModules.mapping[u'Notifier'] = jsPath.child('notifier.js').path
-        self.jsModules.mapping[u'JQuery'] = jsPath.child('jquery.combined.min.js').path
-        self.jsModules.mapping[u'Back2Channel'] = jsPath.child('backchannel.js').path
+
+        jsPath = commonPath.child('js')
+        self.jsModules.mapping.update({
+            u'Notifier': jsPath.child('notifier.js').path,
+            u'JQuery': jsPath.child('jquery.combined.min.js').path,
+            u'Back2Channel': jsPath.child('backchannel.js').path,
+            })
+
+        self.pagePath = commonPath.child('livestream_%s.html' % style)
         self.docFactory = xmlfile(self.pagePath.path)
 
         if hasattr(controller, 'getHistory'):
@@ -73,10 +80,6 @@ class NotifierParentPage(LivePage):
         return self.element
 
 
-    def child_(self, ctx):
-        return NotifierParentPage(self.controller, self.jsPath, self.pagePath)
-
-
     def gotNotification(self, notification):
         notification = dict(((unicode(key), unicode(value))
                              for key, value in notification.iteritems()))
@@ -85,22 +88,40 @@ class NotifierParentPage(LivePage):
 
     def showNotification(self):
         d = self.queue.get()
-        d.addCallback(lambda notification: self.element.callRemote('renderNotification', notification))
+        d.addCallback(lambda notification:
+                self.element.callRemote('renderNotification', notification))
         d.addCallback(lambda _: self.showNotification())
 
 
 
-class NotifierController(object):
+class NotifierController(LivePage):
     """
-    Base class for page controllers.
+    Top-level resource for managing notifier pages.
 
     This keeps the set of listening pages to send notifications to.
+
+    LivePages can only be rendered once, as they have a one-on-one connection
+    to the browser that made the request. This resource will create a new
+    instance of NotifierParentPage for each page request.
     """
 
     producer = None
 
-    def __init__(self):
+    # Make sure that we are a directory-like resource
+    addSlash = True
+
+
+    def __init__(self, style):
+        LivePage.__init__(self)
+        self.style = style
         self.pages = set()
+
+
+    def child_(self, ctx):
+        """
+        Return new page instance for each request, instead of self.
+        """
+        return NotifierParentPage(self, self.style)
 
 
     def notify(self, notification):
@@ -122,8 +143,8 @@ class NotifierController(object):
 
 class VhostFakeRoot:
     """
-    I am a wrapper to be used at site root when you want to combine 
-    vhost.VHostMonsterResource with nevow.guard. If you are using guard, you 
+    I am a wrapper to be used at site root when you want to combine
+    vhost.VHostMonsterResource with nevow.guard. If you are using guard, you
     will pass me a guard.SessionWrapper resource.
     Also can hide generic resources
     """
@@ -140,29 +161,28 @@ class VhostFakeRoot:
         if segments[0] == "vhost":
             return vhost.VHostMonsterResource(), segments[1:]
         else:
-            return self.wrapped.locateChild(ctx, segments) 
+            return self.wrapped.locateChild(ctx, segments)
 
 
+def makeResource(config, controller):
+    root = controller
 
-def makeService(config, title, controller):
-
-    # Set up web service.
-    root = NotifierParentPage(controller, config['js'], config['page'])
-    root.child_static = File(config['static'].path)
+    root.child_static = File(commonPath.child('static').path)
 
     proxyPath = config.get('proxyPath', None)
     if proxyPath:
         oldRoot = root
-	if oldRoot.children is None:
+        if oldRoot.children is None:
             oldRoot.children = {}
         oldRoot.children[proxyPath] = oldRoot
 
-        class Resource(rend.Page):
-            def child_(self, ctx):
-                return oldRoot
-
         root = VhostFakeRoot(oldRoot)
 
+    return root
+
+
+def makeService(config, controller):
+    root = makeResource(config, controller)
     site = NevowSite(root)
 
     notifierService = strports.service(config['webport'], site)
