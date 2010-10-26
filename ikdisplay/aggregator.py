@@ -1,4 +1,5 @@
 from twisted.application import service
+from twisted.internet import defer
 from twisted.python import log
 
 from axiom import item, attributes
@@ -63,3 +64,23 @@ class PubSubAggregator(service.Service):
     def processNotifications(self, feed, notifications):
         self.pubsubHandler.publishNotifications(self.service, feed,
                                                 notifications)
+
+
+
+class AggregatorFromNotifier(service.Service):
+
+    maxHistory = 13
+
+    def __init__(self, notifier):
+        self.notifier = notifier
+        self.history = []
+
+
+    def processNotifications(self, feed, notifications):
+        map(self.notifier.notify, notifications)
+        self.history.extend(notifications)
+        self.history = self.history[-self.maxHistory:]
+
+
+    def getHistory(self):
+        return defer.succeed(self.history)
