@@ -577,6 +577,8 @@ class RaceSource(PubSubSourceMixin, item.Item):
 
 
 NS_ACTIVITY_SCHEMA = 'http://activitystrea.ms/schema/1.0/'
+NS_ANYMETA_ACTIVITY = 'http://mediamatic.nl/ns/anymeta/2010/activitystreams/'
+NS_ATOM = 'http://www.w3.org/2005/Atom'
 
 class ActivityStreamSource(PubSubSourceMixin, item.Item):
     title = "Activity Stream"
@@ -599,14 +601,17 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
                 NS_ACTIVITY_SCHEMA + 'post': 'posted %s',
                 NS_ACTIVITY_SCHEMA + 'like': 'liked %s',
                 NS_ACTIVITY_SCHEMA + 'tag': 'tagged %s in %s',
+                NS_ACTIVITY_SCHEMA + 'share': 'shared %s on %s',
                 NS_ACTIVITY_SCHEMA + 'make-friend': 'friended %s',
                 NS_ACTIVITY_SCHEMA + 'update': 'updated %s',
                 NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'will attend %s',
+                NS_ANYMETA_ACTIVITY + 'link-to': 'linked to %s',
                 }
             }
 
     activitiesWithTarget = (
         NS_ACTIVITY_SCHEMA + 'tag',
+        NS_ACTIVITY_SCHEMA + 'share',
         )
 
     def format_payload(self, payload):
