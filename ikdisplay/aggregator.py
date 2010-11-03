@@ -42,7 +42,7 @@ class Feed(item.Item):
 
     def getURI(self):
         aggregator = service.IService(self.store).getServiceNamed('aggregator')
-        return "xmpp:%s?node=%s" % (aggregator.service.full(), self.handle)
+        return "xmpp:%s?;node=%s" % (aggregator.service.full(), self.handle)
 
 
 
