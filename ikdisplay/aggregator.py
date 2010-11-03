@@ -41,11 +41,16 @@ class Feed(item.Item):
 
 
     def getURI(self):
-        return "xmpp:feeds.mediamatic.nl?node=" + self.handle
+        aggregator = service.IService(self.store).getServiceNamed('aggregator')
+        return "xmpp:%s?node=%s" % (aggregator.service.full(), self.handle)
 
 
 
 class LoggingAggregator(service.Service):
+
+    def __init__(self, service):
+        self.service = service
+
 
     def processNotifications(self, feed, notifications):
         for notification in notifications:

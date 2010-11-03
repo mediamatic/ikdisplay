@@ -4,6 +4,7 @@ dojo.require("dijit.form.Form");
 dojo.require("dijit.form.Button");
 dojo.require("dijit.form.Textarea");
 dojo.require("dijit.form.TextBox");
+dojo.require("dijit.form.ValidationTextBox");
 dojo.require("dijit.form.FilteringSelect");
 dojo.require("dojo.data.ItemFileReadStore");
 
@@ -80,13 +81,24 @@ dojo.ready(function()
                           });
             },
             addFeed: function() {
-                self.doAPI("addFeed")
+                var template = self.getTemplate("form.AddFeed.tpl");
+                self.dialog = new dijit.Dialog({title: "Add feed"});
+                self.dialog.attr("content", template.expand({}));
+                self.dialog.show();
+            },
+            insertFeed: function(button) {
+                var form = dijit.getEnclosingWidget(button.domNode.parentNode);
+                if (!form.isValid())
+                {
+                    return;
+                }
+                var args = form.attr("value");
+                console.log(args);
+                self.dialog.hide();
+                self.doAPI("addFeed", args)
                     .then(function(r) {
                               // Go to feed
-                              self.dispatch("feed/" + r._id)
-                                  .then(function() {
-                                            self.actions.editItem(r._id, 'Edit feed', 'Feed');
-                                        });
+                              self.dispatch("feed/" + r._id);
                           });
             },
             addSite: function() {

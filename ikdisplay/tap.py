@@ -26,7 +26,7 @@ def makeService(config):
     #
     # The aggregator
     #
-    agg = aggregator.LoggingAggregator()
+    agg = aggregator.LoggingAggregator(config['service'])
     agg.setName('aggregator')
     agg.setServiceParent(service.IService(store))
 

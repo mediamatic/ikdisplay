@@ -216,7 +216,9 @@ class APIResource(resource.Resource):
 
     def api_addFeed(self, request):
         """ Adds a new, unnamed feed. Returns the feed item. """
-        feed = Feed(store=self.store, title=u"Untitled feed", handle=u"handle", language=u"en")
+        r = request.args
+        feed = Feed(store=self.store, title=unicode(r["title"][0]),
+                    handle=unicode(r["handle"][0]), language=unicode(r["language"][0]))
         return feed
 
 

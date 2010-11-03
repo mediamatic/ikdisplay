@@ -9,11 +9,6 @@
         <input name="language" dojoType="dijit.form.TextBox" value="{language}" />
     </div>
 
-    <div>
-        Handle:
-        <input name="handle" dojoType="dijit.form.TextBox" value="{handle}" />
-    </div>
-
     <button dojoType="dijit.form.Button" onClick="BackChannel.actions.updateItem({_id}, this);">Save</button>
 </form>
 
