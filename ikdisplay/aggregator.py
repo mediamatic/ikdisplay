@@ -40,10 +40,6 @@ class Feed(item.Item):
         return list(self.powerupsFor(ISource))
 
 
-    def getURI(self):
-        return "xmpp:feeds.mediamatic.nl?node=" + self.handle
-
-
 
 class LoggingAggregator(service.Service):
 
