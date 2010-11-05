@@ -3,8 +3,7 @@
 
 import json
 
-from twisted.application import service, strports
-from twisted.web import resource, static, server, http
+from twisted.web import resource, static, http
 from twisted.internet import defer
 from twisted.python import failure, log
 from axiom import store, item, attributes
@@ -38,12 +37,12 @@ class Encoder(json.JSONEncoder):
             return list(obj)
         if isinstance(obj, item.Item):
             schema = obj.__class__.getSchema()
-            val = dict([('_id', obj.storeID), ('_class', str(obj.__class__.__name__))] + [(k, getattr(obj, k)) for k, _ in schema])
+            val = dict([(k, getattr(obj, k)) for k, _ in schema])
+            val['_id'] = obj.storeID
+            val['_class'] = str(obj.__class__.__name__)
             if source.ISource.providedBy(obj):
                 val['_title'] = obj.renderTitle()
                 val['_type'] = obj.title
-            if isinstance(obj, Feed):
-                val['_uri'] = obj.getURI()
             return val
         return json.JSONEncoder.default(self, obj)
 
@@ -210,7 +209,7 @@ class APIResource(resource.Resource):
         feed = self.api_getItem(request)
         cls = source.allSources[int(request.args["idx"][0])]
         src = cls(store=self.store)
-        src.installOn(feed)        
+        src.installOn(feed)
         return src
 
 

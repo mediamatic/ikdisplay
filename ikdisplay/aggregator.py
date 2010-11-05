@@ -40,17 +40,8 @@ class Feed(item.Item):
         return list(self.powerupsFor(ISource))
 
 
-    def getURI(self):
-        aggregator = service.IService(self.store).getServiceNamed('aggregator')
-        return "xmpp:%s?;node=%s" % (aggregator.service.full(), self.handle)
-
-
 
 class LoggingAggregator(service.Service):
-
-    def __init__(self, service):
-        self.service = service
-
 
     def processNotifications(self, feed, notifications):
         for notification in notifications:
@@ -59,10 +50,9 @@ class LoggingAggregator(service.Service):
 
 
 class PubSubAggregator(service.Service):
-    pubsubService = None
+    pubsubHandler = None
 
     def __init__(self, service):
-        service.Service.__init__(self)
         self.service = service
 
 

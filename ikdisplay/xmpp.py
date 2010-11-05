@@ -223,10 +223,24 @@ class PubSubDispatcher(PubSubClient):
 
             items.append(Item(payload=payload))
 
+        def trapNotFound(failure):
+            """
+            If the node does not exist, create it and retry publish.
+            """
+            failure.trap(error.StanzaError)
+            exc = failure.value
+            if exc.condition != 'item-not-found':
+                return failure
+            else:
+                d = self.createNode(service, nodeIdentifier)
+                d.addCallback(lambda _: self.publish(service, nodeIdentifier,
+                                                     items))
+
         def eb(failure):
             log.err(failure)
 
         d = self.publish(service, nodeIdentifier, items)
+        d.addErrback(trapNotFound)
         d.addErrback(eb)
 
 
@@ -355,7 +369,10 @@ class PubSubClientFromNotifier(PubSubClient):
         Subscribe to all the nodes with the JID we connected with.
         """
         PubSubClient.connectionInitialized(self)
+        self.setupSubscription()
 
+
+    def setupSubscription(self):
         clientJID = self.parent.jid
 
         # Subscribe to the node we want to track
@@ -386,6 +403,30 @@ class PubSubClientFromNotifier(PubSubClient):
             d.addCallback(reversed)
             d.addCallback(self._notificationsFromItems)
             d.addCallback(processHistory)
+
+
+    def refreshSubscription(self, service, nodeIdentifier):
+        if service == self.service and nodeIdentifier == self.nodeIdentifier:
+            return
+
+        def cb(_):
+            self._subscribed = False
+            self._gotHistory = False
+            self.history = []
+            self.service = service
+            self.nodeIdentifier = nodeIdentifier
+            self.setupSubscription()
+
+        clientJID = self.parent.jid
+
+        if self._subscribed:
+            d = self.unsubscribe(self.service, self.nodeIdentifier, clientJID)
+        else:
+            d = defer.succeed(None)
+
+        d.addErrback(log.err)
+        d.addCallback(cb)
+        d.addErrback(log.err)
 
 
     def _notificationsFromItems(self, items):
