@@ -50,10 +50,9 @@ class LoggingAggregator(service.Service):
 
 
 class PubSubAggregator(service.Service):
-    pubsubService = None
+    pubsubHandler = None
 
     def __init__(self, service):
-        service.Service.__init__(self)
         self.service = service
 
 

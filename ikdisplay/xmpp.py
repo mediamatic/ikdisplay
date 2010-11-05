@@ -223,10 +223,24 @@ class PubSubDispatcher(PubSubClient):
 
             items.append(Item(payload=payload))
 
+        def trapNotFound(failure):
+            """
+            If the node does not exist, create it and retry publish.
+            """
+            failure.trap(error.StanzaError)
+            exc = failure.value
+            if exc.condition != 'item-not-found':
+                return failure
+            else:
+                d = self.createNode(service, nodeIdentifier)
+                d.addCallback(lambda _: self.publish(service, nodeIdentifier,
+                                                     items))
+
         def eb(failure):
             log.err(failure)
 
         d = self.publish(service, nodeIdentifier, items)
+        d.addErrback(trapNotFound)
         d.addErrback(eb)
 
 
