@@ -199,7 +199,16 @@ class APIResource(resource.Resource):
 
     def api_removeItem(self, request):
         """ Removes the item {id} from the database. """
+
         item = self.api_getItem(request)
+
+        # Cleanup
+        if (source.IPubSubEventProcessor.providedBy(item)):
+            self.pubsubDispatcher.removeObserver(item)
+
+        if hasattr(item, 'terms') and hasattr(item, 'userIDs'):
+            self.twitterDispatcher.refreshFilters()
+
         item.deleteFromStore(True)
         return {"status": "deleted"}
 
