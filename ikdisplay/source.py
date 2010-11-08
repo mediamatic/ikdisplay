@@ -653,7 +653,8 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
 
 
     def renderTitle(self):
-        return "%s for %s" % (self.title, self.site.title)
+        s = "%s from %s" % (self.title, (self.site and self.site.title) or "?")
+        return s
 
 
 
@@ -666,7 +667,8 @@ allSources = [
     TwitterSource,
     IkCamSource,
     RegDeskSource,
-    RaceSource
+    RaceSource,
+    ActivityStreamSource,
     ]
 """
 The global list of all sources.
