@@ -63,13 +63,7 @@ class APIMethod(ProtectedResource):
             return self.fun.__doc__.strip()+"\n"
         request.setHeader("Content-Type", "application/json")
 
-        try:
-            result = self.fun(request)
-            if not isinstance(result, defer.Deferred):
-                result = defer.succeed(result)
-        except Exception, e:
-            result = defer.fail(failure.Failure(e))
-
+        result = defer.maybeDeferred(self.fun, request)
         result.addCallback(lambda r: json.dumps(r, cls=Encoder))
 
         def missingArgument(f):

@@ -478,6 +478,7 @@ class IkCamSource(PubSubSourceMixin, item.Item):
                 'picture': unicode(pictureElement),
                 }
 
+
     def getNode(self):
         nodeIdentifier = 'ikcam/'
         if self.creator:
@@ -486,6 +487,8 @@ class IkCamSource(PubSubSourceMixin, item.Item):
         elif self.event:
             service = getPubSubService(self.event.uri)
             nodeIdentifier += 'by_event/' + getThingID(self.event.uri)
+        else:
+            return None
 
         return service, nodeIdentifier
 
@@ -659,7 +662,7 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
 
 
 allSources = [
-    SimpleSource,
+#    SimpleSource,
     VoteSource,
     PresenceSource,
     IkMicSource,
