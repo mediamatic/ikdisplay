@@ -85,7 +85,7 @@ def makeService(config):
     # Set up GUI for accessing the page.
     #
     url = 'http://localhost:%d/' % int(config['webport'])
-    g = gui.DisplayGUI(title, url)
+    g = gui.DisplayGUI(title, url, controller, pc)
     g.setServiceParent(s)
 
     #

@@ -12,5 +12,8 @@ Notifier.Notifier.methods(
         d = Divmod.Defer.Deferred()
         backChannel.addMessage(notification, function() {d.callback(null);});
         return d;
+    },
+    function reload(self) {
+        setTimeout(function(){window.location.reload();}, 1000);
     }
 );

@@ -407,7 +407,7 @@ class PubSubClientFromNotifier(PubSubClient):
 
     def refreshSubscription(self, service, nodeIdentifier):
         if service == self.service and nodeIdentifier == self.nodeIdentifier:
-            return
+            return defer.succeed(None)
 
         def cb(_):
             self._subscribed = False
@@ -427,6 +427,7 @@ class PubSubClientFromNotifier(PubSubClient):
         d.addErrback(log.err)
         d.addCallback(cb)
         d.addErrback(log.err)
+        return d
 
 
     def _notificationsFromItems(self, items):

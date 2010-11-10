@@ -140,6 +140,14 @@ class NotifierController(LivePage):
             return defer.succeed([])
 
 
+    def reloadAll(self):
+        """
+        Reloads the connected pages because the configuration changed.
+        """
+        for page in self.pages:
+            page.element.callRemote('reload')
+
+
 
 class VhostFakeRoot:
     """
