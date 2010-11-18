@@ -1,5 +1,5 @@
 """
-ikDisplay twistd plugin.
+ikDisplay Client twistd plugin.
 """
 
 from twisted.application.service import ServiceMaker
