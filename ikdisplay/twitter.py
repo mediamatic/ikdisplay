@@ -85,11 +85,13 @@ class TwitterMonitor(service.Service):
 
 
     def startService(self):
+        service.Service.startService(self)
         self.continueTrying = True
         self.doConnect()
 
 
     def stopService(self):
+        service.Service.stopService(self)
         self.continueTrying = False
 
         if self.factory:
