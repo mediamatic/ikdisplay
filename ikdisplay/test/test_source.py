@@ -5,40 +5,72 @@ Tests for L{ikdisplay.source}.
 from zope.interface import verify
 
 from twisted.trial import unittest
+from twisted.words.xish import domish
 
 from wokkel.generic import parseXml
 from wokkel import pubsub
 
 from ikdisplay import aggregator, source, xmpp
 
+class TestPubSubSource(source.PubSubSourceMixin):
+    TEXTS_NL = {
+            'via': u'Test Bron',
+            }
+    TEXTS_EN = {
+            'via': u'Test Source',
+            }
+
+    via = None
+
+    def format_payload(self, payload):
+        return {
+            'title': u'Title',
+            'subtitle': u'Subtitle',
+        }
+
+
+
 class PubSubSourceMixinTest(unittest.TestCase):
 
-    def test_receiveItems(self):
-        a = []
+    def setUp(self):
+        self.notifications = []
 
         class TestFeed(object):
             language = 'en'
             handle = 'test'
-            processNotifications = a.append
+            processNotifications = self.notifications.append
 
 
-        src = source.PubSubSourceMixin()
-        src.feed = TestFeed()
+        self.source = TestPubSubSource()
+        self.source.activate()
+        self.source.feed = TestFeed()
 
-        items = []
-        event = pubsub.ItemsEvent(None, None, 'vote/160225', items, None)
+        items = [pubsub.Item(payload=domish.Element((None, 'test')))]
+        self.event = pubsub.ItemsEvent(None, None, 'vote/160225', items, None)
 
-        src.itemsReceived(event)
 
-        self.assertEquals(1, len(a))
+    def test_receiveItems(self):
+        self.source.itemsReceived(self.event)
+        self.assertEquals(1, len(self.notifications))
+
 
     def test_format(self):
-        src = source.PubSubSourceMixin()
-        items = []
-        event = pubsub.ItemsEvent(None, None, 'vote/160225', items, None)
+        notifications = self.source.format(self.event)
+        self.assertEquals(1, len(notifications))
 
-        notifications = src.format(event)
-        self.assertEquals(0, len(notifications))
+
+    def test_formatVia(self):
+        notifications = self.source.format(self.event)
+        self.assertEquals(u'via Test Source', notifications[0]['meta'])
+
+
+    def test_formatViaFromNotification(self):
+        def format_payload(payload):
+            return {'via': u'Other'}
+
+        self.source.format_payload = format_payload
+        notifications = self.source.format(self.event)
+        self.assertEquals(u'via Other', notifications[0]['meta'])
 
 
 def formatPayload(src, xml):
@@ -401,6 +433,8 @@ class IkCamSourceTest(unittest.TestCase, PubSubSourceTests):
         self.assertEquals(u'took a self-portrait at Noord exhibition',
                           notification['subtitle'])
 
+
+
 class RegDeskSourceTest(unittest.TestCase, PubSubSourceTests):
     """
     Tests for L{ikdisplay.source.RegDeskSource}.
@@ -492,6 +526,34 @@ class ActivityStreamTest(unittest.TestCase, PubSubSourceTests):
                           notification['subtitle'])
         self.assertEquals(u'http://dwaal.local/figure/80?width=80&height=80',
                           notification['icon'])
+
+
+    def test_formatPayloadPostAttachment(self):
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2010-11-19T12:16:18+01:00</published>
+  <updated>2010-11-19T12:16:18+01:00</updated>
+  <id>http://www.mediamatic.net/activity/1053</id>
+  <title type="html">anyMeta Cyborg created Evelyn, Simon, Axel at Dev Camp \xe2\x80\x9910 \xe2\x80\x94 IkSentric.</title>
+  <link href="http://www.mediamatic.net/id/167544" type="text/html" rel="alternate"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://activitystrea.ms/schema/1.0/post</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://www.mediamatic.net/id/167544</id>
+    <title xmlns="http://www.w3.org/2005/Atom">Evelyn, Simon, Axel at Dev Camp \xe2\x80\x9910 \xe2\x80\x94 IkSentric</title>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/attachment</object-type>
+  </object>
+  <author>
+    <id>http://www.mediamatic.net/id/28344</id>
+    <uri>http://www.mediamatic.net/id/28344</uri>
+    <name>anyMeta Cyborg</name>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </author>
+  <link href="http://www.mediamatic.net/figure/28344" rel="preview"/>
+</entry>"""
+
+        notification = formatPayload(self.source, xml)
+        self.assertEquals(u'http://www.mediamatic.net/figure/167544?width=480&height=320',
+                          notification['picture'])
 
 
     def test_formatPayloadUpdate(self):

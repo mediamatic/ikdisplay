@@ -33,6 +33,15 @@ class SourceMixin(object):
 
     title = "Unknown source"
 
+    TEXTS_NL = {
+            'via_template': u'via %s',
+            }
+    TEXTS_EN = {
+            'via_template': u'via %s',
+            }
+
+    texts = None
+
     def installOn(self, other):
         self.feed = other
         other.powerUp(self, ISource)
@@ -46,6 +55,23 @@ class SourceMixin(object):
         [setattr(item, k, v) for k,v in attributes.iteritems()]
 
 
+    def activate(self):
+        if self.texts is None:
+            self.__class__.texts = {}
+
+            for language in ('nl', 'en'):
+                texts = self.__class__.texts[language] = {}
+                attr = 'TEXTS_' + language.upper()
+                reflect.accumulateClassDict(self.__class__, attr, texts)
+
+
+    def _addVia(self, notification):
+        texts = self.texts[self.feed.language]
+        via = self.via or notification.get('via', texts.get('via'))
+        if via is not None:
+            notification['meta'] = texts['via_template'] % via
+
+
 
 class PubSubSourceMixin(SourceMixin):
     """
@@ -57,27 +83,13 @@ class PubSubSourceMixin(SourceMixin):
     implements(IPubSubEventProcessor)
 
     TEXTS_NL = {
-            'via_template': u'via %s',
             'alien': u'Een illegale alien',
             }
     TEXTS_EN = {
-            'via_template': u'via %s',
             'alien': u'An illegal alien',
             }
 
-    texts = None
-
     pubsubClient = None
-
-    def activate(self):
-        if self.texts is None:
-            self.__class__.texts = {}
-
-            for language in ('nl', 'en'):
-                texts = self.__class__.texts[language] = {}
-                attr = 'TEXTS_' + language.upper()
-                reflect.accumulateClassDict(self.__class__, attr, texts)
-
 
     def installOnSubscription(self, other):
         self.subscription = other
@@ -91,7 +103,8 @@ class PubSubSourceMixin(SourceMixin):
 
     def itemsReceived(self, event):
         notifications = self.format(event)
-        self.feed.processNotifications(notifications)
+        if notifications:
+            self.feed.processNotifications(notifications)
 
 
     def getNode(self):
@@ -110,10 +123,7 @@ class PubSubSourceMixin(SourceMixin):
             notification = self.format_payload(element)
 
             if notification:
-                texts = self.texts[self.feed.language]
-                via = self.via or texts.get('via')
-                if via is not None:
-                    notification['meta'] = texts['via_template'] % via
+                self._addVia(notification)
                 notifications.append(notification)
             else:
                 log.msg("Formatter returned None. Dropping.")
@@ -135,7 +145,7 @@ class Site(item.Item):
 def getThingID(uri):
     from urlparse import urlparse
 
-    path = urlparse(uri).path
+    path = urlparse(uri)[2]
     match = re.match(r'^/id/(\d+)$', path)
     return match.group(1)
 
@@ -363,9 +373,12 @@ class StatusSource(PubSubSourceMixin, item.Item):
         if not text or text == 'is':
             return None
 
-        return {'title': unicode(payload.person.title),
-                'subtitle': text,
-                'icon': unicode(payload.person.image)}
+        return {
+            'title': unicode(payload.person.title),
+            'subtitle': text,
+            'icon': unicode(payload.person.image),
+            'via': self.site.title,
+            }
 
 
     def getNode(self):
@@ -382,8 +395,16 @@ class StatusSource(PubSubSourceMixin, item.Item):
         return s
 
 
+
 class TwitterSource(SourceMixin, item.Item):
     title = "Twitter"
+
+    TEXTS_NL = {
+            'via': 'Twitter',
+            }
+    TEXTS_EN = {
+            'via': 'Twitter',
+            }
 
     feed = attributes.reference()
     enabled = attributes.boolean()
@@ -413,10 +434,13 @@ class TwitterSource(SourceMixin, item.Item):
                 match = match or (userID in self.userIDs)
 
         if match:
-            return {'title': status.user.screen_name,
-                    'subtitle': status.text,
-                    'icon': status.user.profile_image_url,
-                    }
+            notification = {
+                'title': status.user.screen_name,
+                'subtitle': status.text,
+                'icon': status.user.profile_image_url,
+                }
+            self._addVia(notification)
+            return notification
 
 
     def renderTitle(self):
@@ -579,9 +603,11 @@ class RaceSource(PubSubSourceMixin, item.Item):
 
 
 
+NS_ACTIVITY_SPEC = 'http://activitystrea.ms/spec/1.0/'
 NS_ACTIVITY_SCHEMA = 'http://activitystrea.ms/schema/1.0/'
 NS_ANYMETA_ACTIVITY = 'http://mediamatic.nl/ns/anymeta/2010/activitystreams/'
 NS_ATOM = 'http://www.w3.org/2005/Atom'
+TYPE_ATTACHMENT = 'http://mediamatic.nl/ns/anymeta/2008/kind/attachment'
 
 class ActivityStreamSource(PubSubSourceMixin, item.Item):
     title = "Activity Stream"
@@ -608,13 +634,14 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
                 NS_ACTIVITY_SCHEMA + 'make-friend': 'friended %s',
                 NS_ACTIVITY_SCHEMA + 'update': 'updated %s',
                 NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'will attend %s',
-                NS_ANYMETA_ACTIVITY + 'link-to': 'linked to %s',
+                NS_ANYMETA_ACTIVITY + 'link-to': 'linked to %s from %s',
                 }
             }
 
     activitiesWithTarget = (
         NS_ACTIVITY_SCHEMA + 'tag',
         NS_ACTIVITY_SCHEMA + 'share',
+        NS_ANYMETA_ACTIVITY + 'link-to',
         )
 
     def format_payload(self, payload):
@@ -637,6 +664,16 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
         else:
             figureURI = None
 
+        pictureURI = None
+        for element in payload.object.elements(NS_ACTIVITY_SPEC,
+                                               'object-type'):
+            if unicode(element) == TYPE_ATTACHMENT:
+                match = re.match(r'^(http://[^/]+)/id/(\d+)$',
+                                 unicode(payload.object.id))
+                if match:
+                    pictureURI = match.expand(r'\1/figure/\2?width=480&height=320')
+                break
+
         objectTitle = unicode(payload.object.title)
 
         if verb in self.activitiesWithTarget:
@@ -645,9 +682,16 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
         else:
             subtitle = template % (objectTitle,)
 
-        return {'title': actorTitle,
+        notification = {
+                'title': actorTitle,
                 'subtitle': subtitle,
-                'icon': figureURI}
+                'icon': figureURI,
+                'via': self.site.title,
+                }
+        if pictureURI:
+            notification['picture'] = pictureURI
+
+        return notification
 
 
     def getNode(self):

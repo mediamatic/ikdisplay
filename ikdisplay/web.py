@@ -1,7 +1,7 @@
 # Copyright 2010 Mediamatic Lab
 # See LICENSE for details
 
-import json
+import simplejson as json
 
 from twisted.web import resource, static, http
 from twisted.internet import defer
@@ -182,8 +182,10 @@ class APIResource(resource.Resource):
         if (source.IPubSubEventProcessor.providedBy(item) and
             (oldNode != item.getNode or oldEnabled != item.enabled)):
             # Call the pubsub service to fix stuff.
-            self.pubsubDispatcher.removeObserver(item)
-            self.pubsubDispatcher.addObserver(item)
+            if oldEnabled:
+                self.pubsubDispatcher.removeObserver(item)
+            if item.enabled:
+                self.pubsubDispatcher.addObserver(item)
 
         if hasattr(item, 'terms') and hasattr(item, 'userIDs'):
             self.twitterDispatcher.refreshFilters()

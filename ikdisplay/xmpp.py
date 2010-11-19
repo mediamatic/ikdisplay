@@ -46,7 +46,7 @@ attributes.JIDAttribute = JIDAttribute
 
 def getPubSubService(uri):
     from urlparse import urlparse
-    hostname = urlparse(uri).hostname
+    hostname = urlparse(uri)[1]
     if hostname[:4] == "www.":
         hostname = hostname[4:]
     if hostname[-6:] != '.local' and hostname.find('.test.') < 0:
