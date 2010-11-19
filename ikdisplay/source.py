@@ -5,6 +5,7 @@ import random
 
 from zope.interface import Attribute, Interface, implements
 
+from twisted.internet import defer
 from twisted.python import log, reflect
 from twisted.web import client
 
@@ -413,9 +414,13 @@ class TwitterSource(SourceMixin, item.Item):
     userIDs = attributes.textlist()
 
     def onEntry(self, entry):
-        notification = self.format(entry)
-        if notification:
-            self.feed.processNotifications([notification])
+        def gotNotification(notification):
+            if notification:
+                self.feed.processNotifications([notification])
+
+        d = self.format(entry)
+        d.addCallback(gotNotification)
+        d.addErrback(log.err)
 
 
     def format(self, status):
@@ -440,7 +445,9 @@ class TwitterSource(SourceMixin, item.Item):
                 'icon': status.user.profile_image_url,
                 }
             self._addVia(notification)
-            return notification
+            return defer.succeed(notification)
+        else:
+            return defer.succeed(None)
 
 
     def renderTitle(self):

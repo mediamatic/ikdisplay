@@ -30,20 +30,27 @@ class TestPubSubSource(source.PubSubSourceMixin):
 
 
 
+class TestFeed(object):
+    storeID = 1
+    language = 'en'
+    handle = 'test'
+    notifications = []
+
+    def processNotifications(self, notifications):
+        self.notifications.extend(notifications)
+
+
+
 class PubSubSourceMixinTest(unittest.TestCase):
 
     def setUp(self):
-        self.notifications = []
 
-        class TestFeed(object):
-            language = 'en'
-            handle = 'test'
-            processNotifications = self.notifications.append
 
+        self.feed = TestFeed()
 
         self.source = TestPubSubSource()
+        self.source.feed = self.feed
         self.source.activate()
-        self.source.feed = TestFeed()
 
         items = [pubsub.Item(payload=domish.Element((None, 'test')))]
         self.event = pubsub.ItemsEvent(None, None, 'vote/160225', items, None)
@@ -51,7 +58,7 @@ class PubSubSourceMixinTest(unittest.TestCase):
 
     def test_receiveItems(self):
         self.source.itemsReceived(self.event)
-        self.assertEquals(1, len(self.notifications))
+        self.assertEquals(1, len(self.feed.notifications))
 
 
     def test_format(self):
@@ -369,7 +376,27 @@ class TwitterSourceTest(unittest.TestCase):
     """
 
     def setUp(self):
+
+        class TwitterUser(object):
+            pass
+
+        class TwitterStatus(object):
+            pass
+
+        self.feed = aggregator.Feed(handle=u'test', language=u'en')
+
         self.source = source.TwitterSource()
+        self.source.feed = self.feed
+        self.source.activate()
+
+        user = TwitterUser()
+        user.id = u'2426271'
+        user.screen_name = u'ralphm'
+        user.profile_image_url = u'http://a2.twimg.com/profile_images/45293402/ralphm-buddy_normal.png'
+
+        self.status = TwitterStatus()
+        self.status.user = user
+        self.status.text = u'Test'
 
 
     def test_interfaceISource(self):
@@ -377,6 +404,19 @@ class TwitterSourceTest(unittest.TestCase):
         Does this source provide L{source.ISource}?
         """
         verify.verifyObject(source.ISource, self.source)
+
+
+    def test_format(self):
+        def cb(notification):
+            self.assertEquals(u'ralphm', notification['title'])
+            self.assertEquals(u'Test', notification['subtitle'])
+            self.assertEquals(self.status.user.profile_image_url,
+                              notification['icon'])
+            self.assertEquals('via Twitter', notification['meta'])
+
+        d = self.source.format(self.status)
+        d.addCallback(cb)
+        return d
 
 
 
