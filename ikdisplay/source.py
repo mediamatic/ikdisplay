@@ -663,23 +663,26 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
         actorTitle = unicode(generateElementsNamed(payload.author.elements(),
                                                    'name').next())
 
-        actorURI = unicode(generateElementsNamed(payload.author.elements(),
-                                                   'uri').next())
-        match = re.match(r'^(http://[^/]+)/id/(\d+)$', actorURI)
-        if match:
-            figureURI = match.expand(r'\1/figure/\2?width=80&height=80')
-        else:
-            figureURI = None
+        figureURI = None
+        for element in payload.author.elements(NS_ATOM, 'link'):
+            if element.getAttribute('rel', 'alternate') == 'figure':
+                figureURI = element.getAttribute('href')
+                break
+
+        if figureURI:
+            figureURI += '?width=80&height80'
 
         pictureURI = None
         for element in payload.object.elements(NS_ACTIVITY_SPEC,
                                                'object-type'):
             if unicode(element) == TYPE_ATTACHMENT:
-                match = re.match(r'^(http://[^/]+)/id/(\d+)$',
-                                 unicode(payload.object.id))
-                if match:
-                    pictureURI = match.expand(r'\1/figure/\2?width=480&height=320')
+                for element in payload.author.elements(NS_ATOM, 'link'):
+                    if element.getAttribute('rel', 'alternate') == 'figure':
+                        pictureURI = element.getAttribute('href')
+                        break
                 break
+                if pictureURI:
+                    pictureURI += '?width=480'
 
         objectTitle = unicode(payload.object.title)
 
@@ -692,9 +695,10 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
         notification = {
                 'title': actorTitle,
                 'subtitle': subtitle,
-                'icon': figureURI,
                 'via': self.site.title,
                 }
+        if figureURI:
+            notification['icon'] = figureURI
         if pictureURI:
             notification['picture'] = pictureURI
 
