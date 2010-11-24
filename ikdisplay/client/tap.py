@@ -9,7 +9,7 @@ from twisted.words.protocols.jabber.jid import internJID as JID
 from anymeta import manhole
 
 from ikdisplay import xmpp
-from ikdisplay.client import notifier, gui
+from ikdisplay.client import notifier
 
 STYLES = ('beamer', 'beamer_all', 'screen', 'screen_ikcam')
 
@@ -38,7 +38,8 @@ class Options(usage.Options):
     ]
 
     optFlags = [
-            ('verbose', 'v', 'Log traffic')
+            ('verbose', 'v', 'Log traffic'),
+            ('gui', None, 'Provide GTK gui (use --reactor gtk2)')
     ]
 
     def postOptions(self):
@@ -84,9 +85,11 @@ def makeService(config):
     #
     # Set up GUI for accessing the page.
     #
-    url = 'http://localhost:%d/' % int(config['webport'])
-    g = gui.DisplayGUI(title, url, controller, pc)
-    g.setServiceParent(s)
+    if config['gui']:
+        from ikdisplay import gui
+        url = 'http://localhost:%d/' % int(config['webport'])
+        g = gui.DisplayGUI(title, url, controller, pc)
+        g.setServiceParent(s)
 
     #
     # Set up Manhole.
