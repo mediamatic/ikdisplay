@@ -670,13 +670,13 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
                 break
 
         if figureURI:
-            figureURI += '?width=80&height80'
+            figureURI += '?width=80&height=80&filter=crop'
 
         pictureURI = None
         for element in payload.object.elements(NS_ACTIVITY_SPEC,
                                                'object-type'):
             if unicode(element) == TYPE_ATTACHMENT:
-                for element in payload.author.elements(NS_ATOM, 'link'):
+                for element in payload.actor.elements(NS_ATOM, 'link'):
                     if element.getAttribute('rel', 'alternate') == 'figure':
                         pictureURI = element.getAttribute('href')
                         break
