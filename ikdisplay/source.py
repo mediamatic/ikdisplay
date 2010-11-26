@@ -615,22 +615,21 @@ NS_ACTIVITY_SCHEMA = 'http://activitystrea.ms/schema/1.0/'
 NS_ANYMETA_ACTIVITY = 'http://mediamatic.nl/ns/anymeta/2010/activitystreams/'
 NS_ATOM = 'http://www.w3.org/2005/Atom'
 TYPE_ATTACHMENT = 'http://mediamatic.nl/ns/anymeta/2008/kind/attachment'
+ACTIVITY_COMMIT = 'http://mediamatic.nl/ns/schema/2010/verb/commit'
 
-class ActivityStreamSource(PubSubSourceMixin, item.Item):
-    title = "Activity Stream"
-
-    feed = attributes.reference()
-    enabled = attributes.boolean()
-    via = attributes.text()
-    subscription = attributes.reference()
-    site = attributes.reference("""
-    Reference to the site representing where activities occur.
-    """)
-    actor = attributes.reference("""
-    Reference to the thing representing the actor of the activities.
-    """)
-
+class ActivityStreamSourceMixin(PubSubSourceMixin):
     TEXTS_NL = {
+            'activity_verbs': {
+                NS_ACTIVITY_SCHEMA + 'post': 'plaatste %s',
+                NS_ACTIVITY_SCHEMA + 'like': u'is ge\u00efntresseerd in %s',
+                NS_ACTIVITY_SCHEMA + 'tag': 'wees %s aan in %s',
+                NS_ACTIVITY_SCHEMA + 'share': 'deelde %s op %s',
+                NS_ACTIVITY_SCHEMA + 'make-friend': 'werd vrienden met %s',
+                NS_ACTIVITY_SCHEMA + 'update': 'paste %s aan',
+                NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'komt naar %s',
+                NS_ANYMETA_ACTIVITY + 'link-to': 'linkte naar %s vanaf %s',
+                ACTIVITY_COMMIT: 'committe %s op %s',
+                }
             }
     TEXTS_EN = {
             'activity_verbs': {
@@ -642,22 +641,30 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
                 NS_ACTIVITY_SCHEMA + 'update': 'updated %s',
                 NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'will attend %s',
                 NS_ANYMETA_ACTIVITY + 'link-to': 'linked to %s from %s',
+                ACTIVITY_COMMIT: 'committed %s on %s',
                 }
             }
 
-    activitiesWithTarget = (
+    verbsWithTarget = (
         NS_ACTIVITY_SCHEMA + 'tag',
         NS_ACTIVITY_SCHEMA + 'share',
         NS_ANYMETA_ACTIVITY + 'link-to',
+        ACTIVITY_COMMIT,
         )
 
     def format_payload(self, payload):
-        verb = unicode(payload.verb)
 
-        try:
-            template = self.texts[self.feed.language]['activity_verbs'][verb]
-        except KeyError:
-            return
+        verbs = set([unicode(element)
+                 for element in payload.elements(NS_ACTIVITY_SPEC, 'verb')])
+
+        template = None
+        for verb in self.supportedVerbs:
+            if verb in verbs:
+                template = self.texts[self.feed.language]['activity_verbs'][verb]
+                break
+
+        if template is None:
+            return None
 
         from twisted.words.xish.domish import generateElementsNamed
         actorTitle = unicode(generateElementsNamed(payload.author.elements(),
@@ -686,7 +693,7 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
 
         objectTitle = unicode(payload.object.title)
 
-        if verb in self.activitiesWithTarget:
+        if verb in self.verbsWithTarget:
             targetTitle = unicode(payload.target.title)
             subtitle = template % (objectTitle, targetTitle)
         else:
@@ -695,7 +702,7 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
         notification = {
                 'title': actorTitle,
                 'subtitle': subtitle,
-                'via': self.site.title,
+                'via': self.getVia()
                 }
         if figureURI:
             notification['icon'] = figureURI
@@ -705,6 +712,31 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
         return notification
 
 
+class ActivityStreamSource(ActivityStreamSourceMixin, item.Item):
+    title = "Activity Stream"
+
+    feed = attributes.reference()
+    enabled = attributes.boolean()
+    via = attributes.text()
+    subscription = attributes.reference()
+    site = attributes.reference("""
+    Reference to the site representing where activities occur.
+    """)
+    actor = attributes.reference("""
+    Reference to the thing representing the actor of the activities.
+    """)
+
+    supportedVerbs = (
+                NS_ACTIVITY_SCHEMA + 'post',
+                NS_ACTIVITY_SCHEMA + 'like',
+                NS_ACTIVITY_SCHEMA + 'tag',
+                NS_ACTIVITY_SCHEMA + 'share',
+                NS_ACTIVITY_SCHEMA + 'make-friend',
+                NS_ACTIVITY_SCHEMA + 'update',
+                NS_ACTIVITY_SCHEMA + 'rsvp-yes',
+                NS_ANYMETA_ACTIVITY + 'link-to',
+                )
+
     def getNode(self):
         if self.site is not None:
             return (getPubSubService(self.site.uri), u'activity')
@@ -713,6 +745,51 @@ class ActivityStreamSource(PubSubSourceMixin, item.Item):
     def renderTitle(self):
         s = "%s from %s" % (self.title, (self.site and self.site.title) or "?")
         return s
+
+
+    def getVia(self):
+        return self.site.title
+
+
+
+NS_VCS = 'http://mediamatic.nl/ns/spec/vcs/2010/'
+
+class CommitsSource(ActivityStreamSourceMixin, item.Item):
+    title = "Commits"
+
+    feed = attributes.reference()
+    enabled = attributes.boolean()
+    via = attributes.text()
+    subscription = attributes.reference()
+    service = JIDAttribute()
+    nodeIdentifier = attributes.text()
+
+    supportedVerbs = (
+            ACTIVITY_COMMIT,
+            )
+
+    def format_payload(self, payload):
+        try:
+            notification = ActivityStreamSourceMixin.format_payload(self, payload)
+            msg = unicode(payload.object.message).split('\n')[0]
+            print msg, notification
+            notification['subtitle'] += ': %s' % msg
+        except Exception, e:
+            log.err(e)
+        return notification
+
+
+    def getNode(self):
+        return (self.service, self.nodeIdentifier)
+
+
+    def renderTitle(self):
+        s = "%s from %s" % (self.title, (self.site and self.site.title) or "?")
+        return s
+
+
+    def getVia(self):
+        return 'Subversion'
 
 
 
@@ -727,6 +804,7 @@ allSources = [
     RegDeskSource,
     RaceSource,
     ActivityStreamSource,
+    CommitsSource,
     ]
 """
 The global list of all sources.
