@@ -784,7 +784,7 @@ class CommitsSource(ActivityStreamSourceMixin, item.Item):
 
 
     def renderTitle(self):
-        s = "%s from %s" % (self.title, (self.site and self.site.title) or "?")
+        s = "Commits from %s" % (self.service and self.service.full() or "?")
         return s
 
 

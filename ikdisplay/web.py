@@ -8,7 +8,9 @@ from twisted.internet import defer
 from twisted.python import failure, log
 from axiom import store, item, attributes
 from twisted.web.server import NOT_DONE_YET
+from twisted.words.protocols.jabber.jid import internJID as JID
 
+from ikdisplay.xmpp import JIDAttribute
 from ikdisplay.aggregator import Feed
 from ikdisplay import source
 
@@ -169,6 +171,8 @@ class APIResource(resource.Resource):
             value = unicode(args[k][0])
             if isinstance(schema[k], attributes.boolean):
                 value = value == "true"
+            if isinstance(schema[k], JIDAttribute):
+                value = JID(value)
             if isinstance(schema[k], attributes.textlist):
                 value = [s.strip() for s in value.strip().split("\n") if s.strip() != ""]
             if isinstance(schema[k], attributes.reference):
