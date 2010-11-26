@@ -86,7 +86,7 @@ def makeService(config):
     # Set up GUI for accessing the page.
     #
     if config['gui']:
-        from ikdisplay import gui
+        from ikdisplay.client import gui
         url = 'http://localhost:%d/' % int(config['webport'])
         g = gui.DisplayGUI(title, url, controller, pc)
         g.setServiceParent(s)
