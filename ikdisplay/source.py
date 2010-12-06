@@ -628,6 +628,7 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
                 NS_ACTIVITY_SCHEMA + 'update': 'paste %s aan',
                 NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'komt naar %s',
                 NS_ANYMETA_ACTIVITY + 'link-to': 'linkte naar %s vanaf %s',
+                NS_ANYMETA_ACTIVITY + 'status-update': None,
                 ACTIVITY_COMMIT: 'committe %s op %s',
                 }
             }
@@ -641,6 +642,7 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
                 NS_ACTIVITY_SCHEMA + 'update': 'updated %s',
                 NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'will attend %s',
                 NS_ANYMETA_ACTIVITY + 'link-to': 'linked to %s from %s',
+                NS_ANYMETA_ACTIVITY + 'status-update': None,
                 ACTIVITY_COMMIT: 'committed %s on %s',
                 }
             }
@@ -727,14 +729,15 @@ class ActivityStreamSource(ActivityStreamSourceMixin, item.Item):
     """)
 
     supportedVerbs = (
+                NS_ANYMETA_ACTIVITY + 'status-update',
                 NS_ACTIVITY_SCHEMA + 'post',
                 NS_ACTIVITY_SCHEMA + 'like',
                 NS_ACTIVITY_SCHEMA + 'tag',
                 NS_ACTIVITY_SCHEMA + 'share',
                 NS_ACTIVITY_SCHEMA + 'make-friend',
                 NS_ACTIVITY_SCHEMA + 'update',
-                NS_ACTIVITY_SCHEMA + 'rsvp-yes',
-                NS_ANYMETA_ACTIVITY + 'link-to',
+                #NS_ACTIVITY_SCHEMA + 'rsvp-yes',
+                #NS_ANYMETA_ACTIVITY + 'link-to',
                 )
 
     def getNode(self):
