@@ -47,7 +47,7 @@ class Options(usage.Options):
         self['jid'] = JID(self['jid'])
 
         if self['style'] not in STYLES:
-            raise usage.UsageError("Style should be one of %r" % STYLES)
+            raise usage.UsageError("Style should be one of %r" % (", ".join(STYLES)))
 
 
 
