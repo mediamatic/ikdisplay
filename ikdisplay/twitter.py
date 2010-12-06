@@ -2,63 +2,15 @@ from twisted.application import service
 from twisted.internet import defer, error, reactor
 from twisted.python import log
 from twisted.web import error as http_error
-from twisted.web.client import HTTPDownloader, _parse
 from twisted.words.xish import domish
 
 from wokkel import pubsub
 
-from twittytwister import twitter, txml
+from twittytwister import twitter
 
 from ikdisplay.source import TwitterSource
 
 NS_TWITTER = 'http://mediamatic.nl/ns/ikdisplay/2009/twitter'
-
-def downloadPageWithFactory(url, file, contextFactory=None, *args, **kwargs):
-    """
-    Download a web page to a file and return the request factory.
-
-    The returned factory has a C{loseConnnection} method to drop the
-    connection. This is especially useful for stopping streamed responses.
-
-    @param file: path to file on filesystem, or file-like object.
-    @see L{HTTPDownloader} to see what extra args can be passed.
-    """
-    class HTTPDownloaderSavingProtocol(HTTPDownloader):
-        lastProtocol = None
-
-        def buildProtocol(self, addr):
-            p = HTTPDownloader.buildProtocol(self, addr)
-            self._lastProtocol = p
-            return p
-
-        def loseConnection(self):
-            if self._lastProtocol:
-                self._lastProtocol.transport.loseConnection()
-
-    scheme, host, port, path = _parse(url)
-    factory = HTTPDownloaderSavingProtocol(url, file, *args, **kwargs)
-    reactor.connectTCP(host, port, factory)
-    return factory
-
-
-class TwitterFeedWithFactory(twitter.TwitterFeed):
-    """
-    Twitter Feed returning factories.
-
-    Where L{TwitterFeed}'s methods return the deferred that fires for requests,
-    this class returns the whole request factory. This enables manual
-    disconnects.
-    """
-
-    def _rtfeed(self, url, delegate, args):
-        if args:
-            url += '?' + self._urlencode(args)
-        log.msg('Fetching %s' % url)
-        return downloadPageWithFactory(url,
-                                       txml.HoseFeed(delegate),
-                                       agent=self.agent,
-                                       headers=self._makeAuthHeader("GET", url, args))
-
 
 class TwitterMonitor(service.Service):
     """
@@ -74,13 +26,13 @@ class TwitterMonitor(service.Service):
     continueTrying = True
     errorState = None
     consumer = None
-    factory = None
+    protocol = None
 
     terms = None
     userIDs = None
 
     def __init__(self, username, password, consumer=None):
-        self.controller = TwitterFeedWithFactory(username, password)
+        self.controller = twitter.TwitterFeed(username, password)
         self.consumer = consumer
 
 
@@ -94,20 +46,26 @@ class TwitterMonitor(service.Service):
         service.Service.stopService(self)
         self.continueTrying = False
 
-        if self.factory:
-            self.factory.loseConnection()
+        if self.protocol:
+            self.protocol.transport.loseConnection()
 
 
     def doConnect(self):
 
-        def forgetFactory(result):
-            self.factory = None
+        def forgetProtocol(result):
+            self.protocol = None
             return result
 
-        def cb(_):
+        def connectionClosed(_):
             log.msg("Connection closed cleanly.")
             self.errorState = None
             self.delay = self.initialDelay
+
+        def cb(protocol):
+            self.protocol = protocol
+            protocol.deferred.addBoth(forgetProtocol)
+            protocol.deferred.addCallback(connectionClosed)
+            return protocol.deferred
 
         def trapConnectError(failure):
             failure.trap(error.ConnectError,
@@ -159,13 +117,11 @@ class TwitterMonitor(service.Service):
         if self.userIDs:
             args['follow'] = ','.join(self.userIDs)
 
-        if self.controller is None:
+        if self.consumer is None:
             log.msg("No Twitter consumer set. Not connecting.")
             return False
 
-        self.factory = self.controller.filter(self.consumer.onEntry, args)
-        d = self.factory.deferred
-        d.addBoth(forgetFactory)
+        d = self.controller.filter(self.consumer.onEntry, args)
         d.addCallback(cb)
         d.addErrback(trapConnectError)
         d.addErrback(trapHTTPError)
@@ -185,9 +141,9 @@ class TwitterMonitor(service.Service):
         self.terms = terms
         self.userIDs = userIDs
 
-        if self.factory:
+        if self.protocol:
             # If connected, lose connection to automatically reconnect.
-            self.factory.loseConnection()
+            self.protocol.transport.loseConnection()
         elif self.running and self.controller:
             # Start connecting.
             self.doConnect()

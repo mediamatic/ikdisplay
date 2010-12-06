@@ -435,7 +435,7 @@ class TwitterSource(SourceMixin, item.Item):
                     match = True
 
             if self.userIDs:
-                userID = status.user.id
+                userID = str(status.user.id)
                 match = match or (userID in self.userIDs)
 
         if match:
