@@ -275,6 +275,12 @@ class VoteSourceMixin(PubSubSourceMixin):
         return {}
 
 
+    def getNode(self):
+        if self.question is not None:
+            return (getPubSubService(self.question.uri), unicode('vote/' + getThingID(self.question.uri)))
+
+
+
 class VoteSource(VoteSourceMixin, item.Item):
     title = "Vote"
 
@@ -578,6 +584,11 @@ class RegDeskSource(PubSubSourceMixin, item.Item):
         return "%s for %s" % (self.title, (self.event and self.event.title) or "?")
 
 
+    def getNode(self):
+        if self.event is not None:
+            return (getPubSubService(self.event.uri), unicode('regdesk/by_event/' + getThingID(self.event.uri)))
+
+
 
 class RaceSource(PubSubSourceMixin, item.Item):
     title = "Race events"
@@ -609,6 +620,11 @@ class RaceSource(PubSubSourceMixin, item.Item):
 
     def renderTitle(self):
         return "%s for the race %s" % (self.title, (self.race and self.race.title) or "?")
+
+
+    def getNode(self):
+        if self.race is not None:
+            return (getPubSubService(self.race.uri), unicode('race/' + getThingID(self.race.uri)))
 
 
 

@@ -1,6 +1,6 @@
 <form dojoType="dijit.form.Form">
     <div>
-        Event:
+        Registrations by event:
         <div dojoType="dojo.data.ItemFileReadStore" jsId="things" url="/api/selectThings"></div>
         <select name="event" dojoType="dijit.form.FilteringSelect" store="things" {.section event}value="{_id}"{.end} searchAttr="title" ></select>
     </div>
