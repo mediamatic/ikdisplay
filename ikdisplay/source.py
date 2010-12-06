@@ -439,6 +439,8 @@ class TwitterSource(SourceMixin, item.Item):
                 match = match or (userID in self.userIDs)
 
         if match:
+            log.msg("%s: %s" % (status.user.screen_name.encode('utf-8'),
+                                status.text.encode('utf-8')))
             notification = {
                 'title': status.user.screen_name,
                 'subtitle': status.text,
