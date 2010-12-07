@@ -47,7 +47,7 @@ class TwitterMonitor(service.Service):
         self.continueTrying = False
 
         if self.protocol:
-            self.protocol.transport.loseConnection()
+            self.protocol.transport._producer.loseConnection()
 
 
     def doConnect(self):
@@ -143,7 +143,7 @@ class TwitterMonitor(service.Service):
 
         if self.protocol:
             # If connected, lose connection to automatically reconnect.
-            self.protocol.transport.loseConnection()
+            self.protocol.transport._producer.loseConnection()
         elif self.running and self.controller:
             # Start connecting.
             self.doConnect()
