@@ -39,7 +39,7 @@ class Options(usage.Options):
             ('twitter-password', None, None,
                 'Twitter password'),
 
-            ('web-port', None, '8080',
+            ('web-port', None, 'tcp:8080',
                 'Web service port'),
 
             ('manhole-port', None, 'tcp:2227:interface=127.0.0.1',
