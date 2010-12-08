@@ -138,7 +138,9 @@ class TwitterMonitor(service.Service):
 
         fulltweet = entry.raw
         if 'entities' not in fulltweet or 'urls' not in fulltweet['entities'] or not fulltweet['entities']['urls']:
+            # No urls in tweet.
             self.consumer.onEntry(entry)
+            return
 
         ds = []
         for urlentry in fulltweet['entities']['urls']:
