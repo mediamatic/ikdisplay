@@ -1,7 +1,9 @@
 # -*- test-case-name: ikdisplay.test.test_source -*-
 
+import locale
 import re
 import random
+import time
 
 from zope.interface import Attribute, Interface, implements
 
@@ -35,9 +37,13 @@ class SourceMixin(object):
     title = "Unknown source"
 
     TEXTS_NL = {
+            'locale': 'nl_NL.UTF-8',
+            'time_format': '%-d %b, %-H:%M',
             'via_template': u'via %s',
             }
     TEXTS_EN = {
+            'locale': 'en_US.UTF-8',
+            'time_format': '%b %-d, %-I:%M %P',
             'via_template': u'via %s',
             }
 
@@ -65,12 +71,29 @@ class SourceMixin(object):
                 attr = 'TEXTS_' + language.upper()
                 reflect.accumulateClassDict(self.__class__, attr, texts)
 
+    def getTime(self, notification):
+        texts = self.texts[self.feed.language]
+
+        # Set time in localized format
+        oldLocale = locale.getlocale(locale.LC_ALL)
+        if oldLocale == (None, None):
+            oldLocale = 'C'
+        else:
+            oldLocale = '.'.join(oldLocale)
+        locale.setlocale(locale.LC_ALL, texts['locale'])
+        timeStr = time.strftime(texts['time_format'])
+        locale.setlocale(locale.LC_ALL, oldLocale)
+
+        return timeStr
 
     def _addVia(self, notification):
         texts = self.texts[self.feed.language]
+
+        meta = [self.getTime(notification)]
         via = self.via or notification.get('via', texts.get('via'))
         if via is not None:
-            notification['meta'] = texts['via_template'] % via
+            meta.append(texts['via_template'] % via)
+        notification['meta'] = u' '.join(meta)
 
 
 

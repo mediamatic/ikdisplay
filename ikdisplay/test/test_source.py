@@ -68,7 +68,7 @@ class PubSubSourceMixinTest(unittest.TestCase):
 
     def test_formatVia(self):
         notifications = self.source.format(self.event)
-        self.assertEquals(u'via Test Source', notifications[0]['meta'])
+        self.assertTrue(notifications[0]['meta'].endswith(u' via Test Source'))
 
 
     def test_formatViaFromNotification(self):
@@ -77,7 +77,7 @@ class PubSubSourceMixinTest(unittest.TestCase):
 
         self.source.format_payload = format_payload
         notifications = self.source.format(self.event)
-        self.assertEquals(u'via Other', notifications[0]['meta'])
+        self.assertTrue(notifications[0]['meta'].endswith(u' via Other'))
 
 
 def formatPayload(src, xml):
@@ -412,7 +412,7 @@ class TwitterSourceTest(unittest.TestCase):
             self.assertEquals(u'Test', notification['subtitle'])
             self.assertEquals(self.status.user.profile_image_url,
                               notification['icon'])
-            self.assertEquals('via Twitter', notification['meta'])
+            self.assertTrue(notification['meta'].endswith(u' via Twitter'))
 
         d = self.source.format(self.status)
         d.addCallback(cb)
