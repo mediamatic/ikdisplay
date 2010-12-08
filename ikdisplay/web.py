@@ -23,10 +23,10 @@ class ProtectedResource(resource.Resource):
 
 
     def render(self, request):
-        request.setHeader('WWW-Authenticate', 'Basic realm="Test realm"')
+        request.setHeader('WWW-Authenticate', 'Basic realm="ikDisplay configuration"')
         if request.getUser() != "admin" or request.getPassword() != self.password:
             request.setResponseCode(http.UNAUTHORIZED)
-            request.setHeader('WWW-Authenticate', 'Basic realm="Test realm"')
+            request.setHeader('WWW-Authenticate', 'Basic realm="ikDisplay configuration"')
             return static.Data("<body><h1>Unauthorized</h1></body>\n", "text/html").render(request)
         return resource.Resource.render(self, request)
 
