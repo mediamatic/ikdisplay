@@ -15,6 +15,7 @@ from axiom import attributes, item
 
 from ikdisplay.xmpp import IPubSubEventProcessor, JIDAttribute, getPubSubService
 
+
 class ISource(Interface):
     """
     A feed source.
@@ -443,13 +444,9 @@ class TwitterSource(SourceMixin, item.Item):
     userIDs = attributes.textlist()
 
     def onEntry(self, entry):
-        def gotNotification(notification):
-            if notification:
-                self.feed.processNotifications([notification])
-
-        d = self.format(entry)
-        d.addCallback(gotNotification)
-        d.addErrback(log.err)
+        notification = self.format(entry)
+        if notification:
+            self.feed.processNotifications([notification])
 
 
     def format(self, status):
@@ -475,16 +472,19 @@ class TwitterSource(SourceMixin, item.Item):
                 'subtitle': status.text,
                 'icon': status.user.profile_image_url,
                 }
+            if hasattr(status, 'image_url'):
+                notification['picture'] = status.image_url
             self._addVia(notification)
-            return defer.succeed(notification)
+            return notification
         else:
-            return defer.succeed(None)
+            return None
 
 
     def renderTitle(self):
         return "%s (%d terms, %d users)" % (self.title,
                                             len(self.terms or []),
                                             len(self.userIDs or []))
+
 
 
 

@@ -407,16 +407,13 @@ class TwitterSourceTest(unittest.TestCase):
 
 
     def test_format(self):
-        def cb(notification):
-            self.assertEquals(u'ralphm', notification['title'])
-            self.assertEquals(u'Test', notification['subtitle'])
-            self.assertEquals(self.status.user.profile_image_url,
-                              notification['icon'])
-            self.assertTrue(notification['meta'].endswith(u' via Twitter'))
+        notification = self.source.format(self.status)
+        self.assertEquals(u'ralphm', notification['title'])
+        self.assertEquals(u'Test', notification['subtitle'])
+        self.assertEquals(self.status.user.profile_image_url,
+                          notification['icon'])
+        self.assertTrue(notification['meta'].endswith(u' via Twitter'))
 
-        d = self.source.format(self.status)
-        d.addCallback(cb)
-        return d
 
 
 

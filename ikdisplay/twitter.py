@@ -1,14 +1,16 @@
+import re
+import simplejson as json
+
 from twisted.application import service
 from twisted.internet import defer, error, reactor
 from twisted.python import log
+from twisted.web import client
 from twisted.web import error as http_error
 from twisted.words.xish import domish
 
 from wokkel import pubsub
 
 from twittytwister import twitter
-
-from ikdisplay.source import TwitterSource
 
 NS_TWITTER = 'http://mediamatic.nl/ns/ikdisplay/2009/twitter'
 
@@ -121,7 +123,7 @@ class TwitterMonitor(service.Service):
             log.msg("No Twitter consumer set. Not connecting.")
             return False
 
-        d = self.controller.filter(self.consumer.onEntry, args)
+        d = self.controller.filter(self.onEntry, args)
         d.addCallback(cb)
         d.addErrback(trapConnectError)
         d.addErrback(trapHTTPError)
@@ -129,6 +131,29 @@ class TwitterMonitor(service.Service):
         d.addCallback(retry)
 
         return True
+
+
+    def onEntry(self, entry):
+        entry.image_url = None
+
+        fulltweet = entry.raw
+        if 'entities' not in fulltweet or 'urls' not in fulltweet['entities'] or not fulltweet['entities']['urls']:
+            self.consumer.onEntry(entry)
+
+        ds = []
+        for urlentry in fulltweet['entities']['urls']:
+            ds.append(extractImage(urlentry["url"]))
+        d = defer.DeferredList(ds)
+        def getFirstImage(r):
+            image = None
+            for success, result in r:
+                if success and result:
+                    image = result
+                    break
+            entry.image_url = image
+            return entry
+        d.addCallback(getFirstImage)
+        d.addCallback(lambda e: self.consumer.onEntry(e))
 
 
     def setFilters(self, terms, userIDs):
@@ -244,6 +269,7 @@ class TwitterDispatcher(object):
 
 
     def _getEnabledSources(self):
+        from ikdisplay.source import TwitterSource
         return self.store.query(TwitterSource, TwitterSource.enabled==True)
 
 
@@ -265,3 +291,56 @@ class TwitterDispatcher(object):
     def onEntry(self, entry):
         for source in self._getEnabledSources():
             source.onEntry(entry)
+
+
+
+def extractImage(url):
+    extracters = [
+        # native
+        ('http://twitpic\.com/.+', _extractTwitpic),
+        ('http://moby\.to/.+', _extractMobyPicture),
+        ('http://www\.mobypicture\.com/user/[^/]+/view/.+', _extractMobyPicture),
+        ('http://yfrog\.com/.+', _extractYFrog),
+        ('http://www\.flickr\.com/photos/.+', _extractFlickr),
+
+        # using embed.ly oembed proxy:
+        ('http://tweetphoto\.com/.+', _extractEmbedly),
+        ('http://twitgoo\.com/.+', _extractEmbedly),
+        ('http://pikchur\.com/.+', _extractEmbedly),
+        ]
+    for regex, cb in extracters:
+        if re.match(regex, url):
+            return cb(url)
+    return defer.succeed(None)
+
+
+def _extractTwitpic(url):
+    id = url.split("/")[-1]
+    return defer.succeed("http://twitpic.com/show/large/" + id)
+
+
+def _extractYFrog(url):
+    return _oEmbed("http://www.yfrog.com/api/oembed?url="+url)
+
+
+def _extractMobyPicture(url):
+    return _oEmbed("http://api.mobypicture.com/oEmbed?url=%s&format=json" % url)
+
+
+def _extractFlickr(url):
+    return _oEmbed("http://www.flickr.com/services/oembed/?url=%s&format=json" % url)
+
+
+def _extractEmbedly(url):
+    return _oEmbed("http://api.embed.ly/1/oembed?url="+url)
+
+
+def _oEmbed(url):
+    d = client.getPage(url)
+    def parse(page):
+        result = json.loads(page)
+        if result['type'] not in ('photo', 'image'): # 'image' is not according to spec, but yfrog returns it
+            return None
+        return result['url']
+    d.addCallback(parse)
+    return d
