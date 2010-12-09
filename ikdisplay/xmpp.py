@@ -5,7 +5,7 @@ from twisted.internet import defer, reactor, task
 from twisted.python import log
 from twisted.words.protocols.jabber import error
 from twisted.words.protocols.jabber.jid import internJID as JID
-from twisted.words.protocols.jabber.xmlstream import IQ
+from twisted.words.protocols.jabber.xmlstream import IQ, TimeoutError
 from twisted.words.xish import domish
 
 from wokkel.client import XMPPClient
@@ -297,6 +297,8 @@ class GroupChatHandler(MessageProtocol):
 
 class Pinger(PingClientProtocol):
     verbose = False
+    pingInterval = 30
+    reconnectCount = 2
 
     def __init__(self, entity):
         self.entity = entity
@@ -304,7 +306,8 @@ class Pinger(PingClientProtocol):
 
 
     def connectionInitialized(self):
-        self.lc.start(60)
+        self.lc.start(self.pingInterval)
+        self.timeoutCount = 0
 
 
     def connectionLost(self, reason):
@@ -317,10 +320,11 @@ class Pinger(PingClientProtocol):
             log.msg("*** PING ***")
 
         def cb(result):
+            self.timeoutCount = 0
             if self.verbose:
                 log.msg("*** PONG ***")
 
-        def eb(failure):
+        def trapRemoteServerNotFound(failure):
             failure.trap(error.StanzaError)
             exc = failure.value
 
@@ -328,10 +332,22 @@ class Pinger(PingClientProtocol):
                 return failure
 
             log.msg("Remote server not found, restarting stream.")
-            reactor.callLater(5, self.send, '</stream:stream>')
+            exc = error.StreamError('connection-timeout')
+            reactor.callLater(1, self.xmlstream.sendStreamError, exc)
+
+        def trapTimeout(failure):
+            failure.trap(TimeoutError)
+            self.timeoutCount += 1
+            if self.timeoutCount >= self.reconnectCount:
+                log.msg("Remote server not responding, restarting stream.")
+                exc = error.StreamError('connection-timeout')
+                reactor.callLater(1, self.xmlstream.sendStreamError, exc)
+
 
         d = self.ping(self.entity)
-        d.addCallbacks(cb, eb)
+        d.addCallback(cb)
+        d.addErrback(trapRemoteServerNotFound)
+        d.addErrback(trapTimeout)
         d.addErrback(log.err)
         return d
 
