@@ -43,8 +43,8 @@ class SourceMixin(object):
             'via_template': u'via %s',
             }
     TEXTS_EN = {
-            'locale': 'en_US.UTF-8',
-            'time_format': '%b %-d, %-I:%M %P',
+            'locale': 'en_GB.UTF-8',
+            'time_format': '%b %-d, %-H:%M',
             'via_template': u'via %s',
             }
 
