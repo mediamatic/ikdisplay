@@ -670,6 +670,8 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
                 NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'komt naar %s',
                 NS_ANYMETA_ACTIVITY + 'link-to': 'linkte naar %s vanaf %s',
                 NS_ANYMETA_ACTIVITY + 'status-update': None,
+                NS_ANYMETA_ACTIVITY + 'iktag': 'koppelde een ikTag',
+                NS_ANYMETA_ACTIVITY + 'facebook-connect': 'koppelde aan Facebook',
                 ACTIVITY_COMMIT: 'committe %s op %s',
                 }
             }
@@ -684,6 +686,8 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
                 NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'will attend %s',
                 NS_ANYMETA_ACTIVITY + 'link-to': 'linked to %s from %s',
                 NS_ANYMETA_ACTIVITY + 'status-update': None,
+                NS_ANYMETA_ACTIVITY + 'iktag': 'linked an ikTag',
+                NS_ANYMETA_ACTIVITY + 'facebook-connect': 'connected to Facebook',
                 ACTIVITY_COMMIT: 'committed %s on %s',
                 }
             }
@@ -779,6 +783,8 @@ class ActivityStreamSource(ActivityStreamSourceMixin, item.Item):
                 NS_ACTIVITY_SCHEMA + 'update',
                 #NS_ACTIVITY_SCHEMA + 'rsvp-yes',
                 #NS_ANYMETA_ACTIVITY + 'link-to',
+                NS_ANYMETA_ACTIVITY + 'iktag',
+                NS_ANYMETA_ACTIVITY + 'facebook-connect',
                 )
 
     def getNode(self):
