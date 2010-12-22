@@ -34,5 +34,13 @@ class TestExtractImage(unittest.TestCase):
         return self._testExtractImage("http://yfrog.com/c9vd30j", "http://img441.yfrog.com/img441/3194/vd30.jpg")
 
 
+    def testImgur(self):
+        return self._testExtractImage("http://imgur.com/hPa9B", "http://imgur.com/hPa9B.jpg")
+
+
+    def testTinypic(self):
+        return self._testExtractImage("http://i56.tinypic.com/zoc3o0.jpg", "http://i56.tinypic.com/zoc3o0.jpg")
+
+
     def testUnsupported(self):
         return self._testExtractImage("http://some.unsupported/url", None)

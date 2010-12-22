@@ -305,15 +305,24 @@ def extractImage(url):
         ('http://yfrog\.com/.+', _extractYFrog),
         ('http://www\.flickr\.com/photos/.+', _extractFlickr),
 
+        # literal links
+        ('http://i\d+\.tinypic\.com/.+\.(png|jpg)$', _extractLiteral),
+
+
         # using embed.ly oembed proxy:
         ('http://tweetphoto\.com/.+', _extractEmbedly),
         ('http://twitgoo\.com/.+', _extractEmbedly),
         ('http://pikchur\.com/.+', _extractEmbedly),
+        ('http://imgur\.com/.+', _extractEmbedly),
         ]
     for regex, cb in extracters:
         if re.match(regex, url):
             return cb(url)
     return defer.succeed(None)
+
+
+def _extractLiteral(url):
+    return defer.succeed(url)
 
 
 def _extractTwitpic(url):
