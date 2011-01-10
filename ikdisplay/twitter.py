@@ -10,9 +10,24 @@ from twisted.words.xish import domish
 
 from wokkel import pubsub
 
-from twittytwister import twitter
+from twittytwister import streaming, twitter
 
 NS_TWITTER = 'http://mediamatic.nl/ns/ikdisplay/2009/twitter'
+
+class VerboseTwitterStream(streaming.TwitterStream):
+    """
+    More verbose Twitter protocol.
+    """
+
+    def timeoutConnection(self):
+        streaming.TwitterStream.timeoutConnection(self)
+        log.msg("Twitter connection timed out.")
+
+
+    def keepAliveReceived(self):
+        log.msg("Twitter keep-alive")
+
+
 
 class TwitterMonitor(service.Service):
     """
@@ -35,6 +50,7 @@ class TwitterMonitor(service.Service):
 
     def __init__(self, username, password, consumer=None):
         self.controller = twitter.TwitterFeed(username, password)
+        self.controller.protocol = VerboseTwitterStream
         self.consumer = consumer
 
 
