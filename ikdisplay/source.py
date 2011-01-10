@@ -750,6 +750,7 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
             }
 
     supportedVerbs = ()
+    agentVerbs = frozenset()
 
     def format_payload(self, payload):
         """
@@ -770,6 +771,9 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
                 break
 
         if template is None:
+            return None
+
+        if payload.agent and verb not in self.agentVerbs:
             return None
 
         from twisted.words.xish.domish import generateElementsNamed
@@ -850,6 +854,12 @@ class ActivityStreamSource(ActivityStreamSourceMixin, item.Item):
                 NS_ANYMETA_ACTIVITY + 'iktag',
                 NS_ANYMETA_ACTIVITY + 'facebook-connect',
                 )
+
+    agentVerbs = frozenset((
+                NS_ACTIVITY_SCHEMA + 'like',
+                NS_ANYMETA_ACTIVITY + 'iktag',
+                NS_ANYMETA_ACTIVITY + 'facebook-connect',
+                ))
 
     def getNode(self):
         if self.site is not None:
