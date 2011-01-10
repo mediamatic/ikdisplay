@@ -173,8 +173,7 @@ class VoteSourceTest(unittest.TestCase, PubSubSourceTests):
     </answers>
     <total_votes>3</total_votes>
   </question>
-</rsp>
-        """
+</rsp>"""
 
         notification = formatPayload(self.source, xml)
 
@@ -230,8 +229,7 @@ class PresenceSourceTest(unittest.TestCase, PubSubSourceTests):
     </answers>
     <total_votes>3</total_votes>
   </question>
-</rsp>
-        """
+</rsp>"""
 
         notification = formatPayload(self.source, xml)
 
@@ -287,8 +285,7 @@ class IkMicSourceTest(unittest.TestCase, PubSubSourceTests):
     </answers>
     <total_votes>3</total_votes>
   </question>
-</rsp>
-        """
+</rsp>"""
 
         notification = formatPayload(self.source, xml)
 
@@ -337,8 +334,7 @@ class StatusSourceTest(unittest.TestCase, PubSubSourceTests):
     <image>http://fast.mediamatic.nl/f/sjnh/image/530/27597-480-480-crop.jpg</image>
     <uri>http://www.mediamatic.net/id/22661</uri>
   </person>
-</rsp>
-        """
+</rsp>"""
 
         notification = formatPayload(self.source, xml)
         self.assertIdentical(None, notification)
@@ -353,8 +349,7 @@ class StatusSourceTest(unittest.TestCase, PubSubSourceTests):
     <image>http://fast.mediamatic.nl/f/sjnh/image/530/27597-480-480-crop.jpg</image>
     <uri>http://www.mediamatic.net/id/22661</uri>
   </person>
-</rsp>
-        """
+</rsp>"""
 
         notification = formatPayload(self.source, xml)
         self.assertIdentical(None, notification)
@@ -463,8 +458,8 @@ class IkCamSourceTest(unittest.TestCase, PubSubSourceTests):
     <rsc_uri>http://www.mediamatic.net/id/163884</rsc_uri>
     <attachment_uri>http://fast.mediamatic.nl/f/sjnh/image/734/163884-600-480.jpg</attachment_uri>
   </picture>
-</notification>
-        """
+</notification>"""
+
         notification = formatPayload(self.source, xml)
         self.assertEquals(u'After Midnight', notification['title'])
         self.assertEquals(u'took a self-portrait at Noord exhibition',
@@ -536,6 +531,44 @@ class ActivityStreamTest(unittest.TestCase, PubSubSourceTests):
 
 
     def test_formatPayloadPost(self):
+        """
+        An entry with the post verb that includes an actor icon.
+        """
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2010-10-22T15:12:55+02:00</published>
+  <updated>2010-10-22T15:12:55+02:00</updated>
+  <id>http://dwaal.local/activity/80/14</id>
+  <title type="html">Ralph Meijer maakte Birgit Meijer</title>
+  <link href="http://dwaal.local/id/99" type="text/html" rel="alternate"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://activitystrea.ms/schema/1.0/post</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://dwaal.local/id/99</id>
+    <title xmlns="http://www.w3.org/2005/Atom">Birgit Meijer</title>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </object>
+  <author>
+    <id>http://dwaal.local/id/80</id>
+    <uri>http://dwaal.local/id/80</uri>
+    <name>Ralph Meijer</name>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+    <link rel="enclosure" href="http://dwaal.local/image/432/96-192-192.jpg"/>
+    <link rel="figure" href="http://dwaal.local/figure/80"/>
+  </author>
+</entry>"""
+
+        notification = formatPayload(self.source, xml)
+        self.assertEquals(u'Ralph Meijer', notification['title'])
+        self.assertEquals(u'posted Birgit Meijer',
+                          notification['subtitle'])
+        self.assertEquals(u'http://dwaal.local/figure/80?width=80&height=80&filter=crop',
+                          notification['icon'])
+
+
+    def test_formatPayloadPostNoIcon(self):
+        """
+        An entry with the post verb that lacks an actor icon.
+        """
         xml = """
 <entry xmlns="http://www.w3.org/2005/Atom">
   <published>2010-10-22T15:12:55+02:00</published>
@@ -558,14 +591,46 @@ class ActivityStreamTest(unittest.TestCase, PubSubSourceTests):
 </entry>"""
 
         notification = formatPayload(self.source, xml)
-        self.assertEquals(u'Ralph Meijer', notification['title'])
-        self.assertEquals(u'posted Birgit Meijer',
-                          notification['subtitle'])
-        self.assertEquals(u'http://dwaal.local/figure/80?width=80&height=80',
-                          notification['icon'])
+        self.assertNotIn('icon', notification)
 
 
     def test_formatPayloadPostAttachment(self):
+        """
+        An entry with the post verb, object type attachment, with picture.
+        """
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2010-11-19T12:16:18+01:00</published>
+  <updated>2010-11-19T12:16:18+01:00</updated>
+  <id>http://www.mediamatic.net/activity/1053</id>
+  <title type="html">anyMeta Cyborg created Evelyn, Simon, Axel at Dev Camp \xe2\x80\x9910 \xe2\x80\x94 IkSentric.</title>
+  <link href="http://www.mediamatic.net/id/167544" type="text/html" rel="alternate"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://activitystrea.ms/schema/1.0/post</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://www.mediamatic.net/id/167544</id>
+    <title xmlns="http://www.w3.org/2005/Atom">Evelyn, Simon, Axel at Dev Camp \xe2\x80\x9910 \xe2\x80\x94 IkSentric</title>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/attachment</object-type>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="enclosure" href="http://fast.mediamatic.nl/f/sjnh/image/403/167544-600-375.jpg"/>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="figure" href="http://www.mediamatic.net/figure/167544"/>
+  </object>
+  <author>
+    <id>http://www.mediamatic.net/id/28344</id>
+    <uri>http://www.mediamatic.net/id/28344</uri>
+    <name>anyMeta Cyborg</name>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </author>
+  <link href="http://www.mediamatic.net/figure/28344" rel="preview"/>
+</entry>"""
+
+        notification = formatPayload(self.source, xml)
+        self.assertEquals(u'http://www.mediamatic.net/figure/167544?width=480',
+                          notification['picture'])
+
+
+    def test_formatPayloadPostAttachmentNoPicture(self):
+        """
+        An entry with the post verb, object type attachment, without picture.
+        """
         xml = """
 <entry xmlns="http://www.w3.org/2005/Atom">
   <published>2010-11-19T12:16:18+01:00</published>
@@ -589,8 +654,7 @@ class ActivityStreamTest(unittest.TestCase, PubSubSourceTests):
 </entry>"""
 
         notification = formatPayload(self.source, xml)
-        self.assertEquals(u'http://www.mediamatic.net/figure/167544?width=480&height=320',
-                          notification['picture'])
+        self.assertNotIn('picture', notification)
 
 
     def test_formatPayloadUpdate(self):
@@ -619,6 +683,43 @@ class ActivityStreamTest(unittest.TestCase, PubSubSourceTests):
         self.assertEquals(u'Ralph Meijer', notification['title'])
         self.assertEquals(u'updated Birgit Meijer',
                           notification['subtitle'])
+
+
+    def test_formatPayloadRFID(self):
+        """
+        An entry with an RFID (ikTag) verb.
+        """
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2010-12-22T19:23:04+01:00</published>
+  <updated>2010-12-22T19:23:04+01:00</updated>
+  <id>http://www.mediamatic.net/activity/40313</id>
+  <title type="html">Ralph Meijer connected an ikTag to his/her account. </title>
+  <link rel="alternate" type="text/html" href="http://www.mediamatic.net/id/24879"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2010/activitystreams/iktag</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://www.mediamatic.net/id/24879</id>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+    <title xmlns="http://www.w3.org/2005/Atom">Ralph Meijer</title>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="alternate" href="http://www.mediamatic.net/id/24879"/>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="enclosure" href="http://fast.mediamatic.nl/f/sjnh/image/914/24881-360-480.jpg"/>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="figure" href="http://www.mediamatic.net/figure/24879"/>
+  </object>
+  <author>
+    <id>http://www.mediamatic.net/id/24879</id>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+    <title>Ralph Meijer</title>
+    <link rel="alternate" href="http://www.mediamatic.net/id/24879"/>
+    <link rel="enclosure" href="http://fast.mediamatic.nl/f/sjnh/image/914/24881-360-480.jpg"/>
+    <link rel="figure" href="http://www.mediamatic.net/figure/24879"/>
+    <name>Ralph Meijer</name>
+    <uri>http://www.mediamatic.net/id/24879</uri>
+  </author>
+</entry>"""
+
+        notification = formatPayload(self.source, xml)
+        self.assertEquals(u'Ralph Meijer', notification['title'])
+        self.assertEquals(u'linked an ikTag', notification['subtitle'])
 
 
     def test_getNodeSite(self):

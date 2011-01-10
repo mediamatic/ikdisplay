@@ -1,5 +1,13 @@
 # -*- test-case-name: ikdisplay.test.test_source -*-
 
+"""
+Feed Sources.
+
+A Feed Source is a source of events or notifications, typically received via a
+publish-subscribe mechanism that are converted into a common format to be
+aggregated into a feed. A feed is composed of one or more sources.
+"""
+
 import locale
 import re
 import random
@@ -7,7 +15,6 @@ import time
 
 from zope.interface import Attribute, Interface, implements
 
-from twisted.internet import defer
 from twisted.python import log, reflect
 from twisted.web import client
 
@@ -15,6 +22,13 @@ from axiom import attributes, item
 
 from ikdisplay.xmpp import IPubSubEventProcessor, JIDAttribute, getPubSubService
 
+NS_ACTIVITY_SPEC = 'http://activitystrea.ms/spec/1.0/'
+NS_ACTIVITY_SCHEMA = 'http://activitystrea.ms/schema/1.0/'
+NS_ANYMETA_ACTIVITY = 'http://mediamatic.nl/ns/anymeta/2010/activitystreams/'
+NS_ATOM = 'http://www.w3.org/2005/Atom'
+
+TYPE_ATTACHMENT = 'http://mediamatic.nl/ns/anymeta/2008/kind/attachment'
+ACTIVITY_COMMIT = 'http://mediamatic.nl/ns/schema/2010/verb/commit'
 
 class ISource(Interface):
     """
@@ -33,6 +47,19 @@ class ISource(Interface):
 
 
 class SourceMixin(object):
+    """
+    Common code for all sources.
+
+    As axiom does not support attributes on superclasses, this mixin only
+    provides the code part of the common features of sources. Each source
+    implementation must still provide the (axiom) attributes required by
+    L{ISource}.
+
+    @ivar texts: Contains the texts from this class and all the base classes,
+        for the language set in the config.
+    @type texts: C{dict}
+    """
+
     implements(ISource)
 
     title = "Unknown source"
@@ -64,6 +91,9 @@ class SourceMixin(object):
 
 
     def activate(self):
+        """
+        When a source appears in memory, set up the text labels for its class.
+        """
         if self.texts is None:
             self.__class__.texts = {}
 
@@ -72,7 +102,11 @@ class SourceMixin(object):
                 attr = 'TEXTS_' + language.upper()
                 reflect.accumulateClassDict(self.__class__, attr, texts)
 
+
     def getTime(self, notification):
+        """
+        Render the timestamp of a notification, using the feed's language.
+        """
         texts = self.texts[self.feed.language]
 
         # Set time in localized format
@@ -88,6 +122,9 @@ class SourceMixin(object):
         return timeStr
 
     def _addVia(self, notification):
+        """
+        Set notification metadata to a timestamp and via text.
+        """
         texts = self.texts[self.feed.language]
 
         meta = [self.getTime(notification)]
@@ -100,11 +137,9 @@ class SourceMixin(object):
 
 class PubSubSourceMixin(SourceMixin):
     """
-
-    @ivar texts: Contains the texts from this class and all the base classes,
-        for the language set in the config.
-    @type texts: C{dict}
+    Common code for XMPP Publish-Subscribe sources.
     """
+
     implements(IPubSubEventProcessor)
 
     TEXTS_NL = {
@@ -113,8 +148,6 @@ class PubSubSourceMixin(SourceMixin):
     TEXTS_EN = {
             'alien': u'An illegal alien',
             }
-
-    pubsubClient = None
 
     def installOnSubscription(self, other):
         self.subscription = other
@@ -651,55 +684,81 @@ class RaceSource(PubSubSourceMixin, item.Item):
 
 
 
-NS_ACTIVITY_SPEC = 'http://activitystrea.ms/spec/1.0/'
-NS_ACTIVITY_SCHEMA = 'http://activitystrea.ms/schema/1.0/'
-NS_ANYMETA_ACTIVITY = 'http://mediamatic.nl/ns/anymeta/2010/activitystreams/'
-NS_ATOM = 'http://www.w3.org/2005/Atom'
-TYPE_ATTACHMENT = 'http://mediamatic.nl/ns/anymeta/2008/kind/attachment'
-ACTIVITY_COMMIT = 'http://mediamatic.nl/ns/schema/2010/verb/commit'
-
 class ActivityStreamSourceMixin(PubSubSourceMixin):
+    """
+    Common code for Activity Stream via XMPP Publish-Subscribe sources.
+
+    The text labels under the C{'activity_verbs'} key are all templates
+    where the titles of activity object and target can be used as variables.
+
+    A subclass of this mixin will define the list of supported activity streams
+    verbs it will render into notifications. Notifications with other verbs
+    are dropped.
+
+    Upon receiving a new notification, this list will be processed in order,
+    checking if the verb is used in the notification. If it is, a matching text
+    template is looked up in the text labels. If that label is C{None}, the
+    notification will be dropped. This allows for ignoring certain verbs that
+    are a subverb of a supported verb. E.g. when the status-update verb is
+    derived from the post verb, but we don't want to render the status-update
+    verb at all, we put the status-update verb in C{'supportedVerbs'}, but then
+    assign C{None} as its text label.
+
+    Processing of the list of supported verbs will stop at the first verb that
+    is found in the notification. Notifications with verbs that derive from
+    other verbs will have all the superverbs also mentioned in the
+    notification. Make sure that the list of supported verbs is ordered from
+    most to least specific, so that the most specific verb for a notification
+    is found first.
+
+    @ivar supportedVerbs: The verbs supported by this instance as a tuple of
+        verb URIs.
+    @type supportedVerbs: C{tuple}.
+    """
+
     TEXTS_NL = {
             'activity_verbs': {
-                NS_ACTIVITY_SCHEMA + 'post': 'plaatste %s',
-                NS_ACTIVITY_SCHEMA + 'like': u'is ge\u00efntresseerd in %s',
-                NS_ACTIVITY_SCHEMA + 'tag': 'wees %s aan in %s',
-                NS_ACTIVITY_SCHEMA + 'share': 'deelde %s op %s',
-                NS_ACTIVITY_SCHEMA + 'make-friend': 'werd vrienden met %s',
-                NS_ACTIVITY_SCHEMA + 'update': 'paste %s aan',
-                NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'komt naar %s',
-                NS_ANYMETA_ACTIVITY + 'link-to': 'linkte naar %s vanaf %s',
+                NS_ACTIVITY_SCHEMA + 'post': 'plaatste %(object)s',
+                NS_ACTIVITY_SCHEMA + 'like': u'is ge\u00efntresseerd in %(object)s',
+                NS_ACTIVITY_SCHEMA + 'tag': 'wees %(object)s aan in %(target)s',
+                NS_ACTIVITY_SCHEMA + 'share': 'deelde %(object)s op %(target)s',
+                NS_ACTIVITY_SCHEMA + 'make-friend': 'werd vrienden met %(object)s',
+                NS_ACTIVITY_SCHEMA + 'update': 'paste %(object)s aan',
+                NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'komt naar %(object)s',
+                NS_ANYMETA_ACTIVITY + 'link-to': 'linkte naar %(object)s vanaf %(target)s',
                 NS_ANYMETA_ACTIVITY + 'status-update': None,
                 NS_ANYMETA_ACTIVITY + 'iktag': 'koppelde een ikTag',
                 NS_ANYMETA_ACTIVITY + 'facebook-connect': 'koppelde aan Facebook',
-                ACTIVITY_COMMIT: 'committe %s op %s',
+                ACTIVITY_COMMIT: 'committe %(object)s op %(target)s',
                 }
             }
     TEXTS_EN = {
             'activity_verbs': {
-                NS_ACTIVITY_SCHEMA + 'post': 'posted %s',
-                NS_ACTIVITY_SCHEMA + 'like': 'liked %s',
-                NS_ACTIVITY_SCHEMA + 'tag': 'tagged %s in %s',
-                NS_ACTIVITY_SCHEMA + 'share': 'shared %s on %s',
-                NS_ACTIVITY_SCHEMA + 'make-friend': 'friended %s',
-                NS_ACTIVITY_SCHEMA + 'update': 'updated %s',
-                NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'will attend %s',
-                NS_ANYMETA_ACTIVITY + 'link-to': 'linked to %s from %s',
+                NS_ACTIVITY_SCHEMA + 'post': 'posted %(object)s',
+                NS_ACTIVITY_SCHEMA + 'like': 'liked %(object)s',
+                NS_ACTIVITY_SCHEMA + 'tag': 'tagged %(object)s in %(target)s',
+                NS_ACTIVITY_SCHEMA + 'share': 'shared %(object)s on %(target)s',
+                NS_ACTIVITY_SCHEMA + 'make-friend': 'friended %(object)s',
+                NS_ACTIVITY_SCHEMA + 'update': 'updated %(object)s',
+                NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'will attend %(object)s',
+                NS_ANYMETA_ACTIVITY + 'link-to': 'linked to %(object)s from %(target)s',
                 NS_ANYMETA_ACTIVITY + 'status-update': None,
                 NS_ANYMETA_ACTIVITY + 'iktag': 'linked an ikTag',
                 NS_ANYMETA_ACTIVITY + 'facebook-connect': 'connected to Facebook',
-                ACTIVITY_COMMIT: 'committed %s on %s',
+                ACTIVITY_COMMIT: 'committed %(object)s on %(target)s',
                 }
             }
 
-    verbsWithTarget = (
-        NS_ACTIVITY_SCHEMA + 'tag',
-        NS_ACTIVITY_SCHEMA + 'share',
-        NS_ANYMETA_ACTIVITY + 'link-to',
-        ACTIVITY_COMMIT,
-        )
+    supportedVerbs = ()
 
     def format_payload(self, payload):
+        """
+        Render the payload into a notification.
+
+        If available, this uses the anyMeta specific 'figure' links to point to
+        scaled-and-cropped versions of the image used for the actor (icon) or
+        the object (picture).
+        """
 
         verbs = set([unicode(element)
                  for element in payload.elements(NS_ACTIVITY_SPEC, 'verb')])
@@ -730,21 +789,21 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
         for element in payload.object.elements(NS_ACTIVITY_SPEC,
                                                'object-type'):
             if unicode(element) == TYPE_ATTACHMENT:
-                for element in payload.actor.elements(NS_ATOM, 'link'):
+                for element in payload.object.elements(NS_ATOM, 'link'):
                     if element.getAttribute('rel', 'alternate') == 'figure':
                         pictureURI = element.getAttribute('href')
                         break
-                break
                 if pictureURI:
                     pictureURI += '?width=480'
 
-        objectTitle = unicode(payload.object.title)
+        vars = {}
+        if payload.object and payload.object.title:
+            vars['object'] = unicode(payload.object.title)
 
-        if verb in self.verbsWithTarget:
-            targetTitle = unicode(payload.target.title)
-            subtitle = template % (objectTitle, targetTitle)
-        else:
-            subtitle = template % (objectTitle,)
+        if payload.target and payload.target.title:
+            vars['target'] = unicode(payload.target.title)
+
+        subtitle = template % vars
 
         notification = {
                 'title': actorTitle,
@@ -759,7 +818,12 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
         return notification
 
 
+
 class ActivityStreamSource(ActivityStreamSourceMixin, item.Item):
+    """
+    Generic anyMeta Activity Streams source.
+    """
+
     title = "Activity Stream"
 
     feed = attributes.reference()
@@ -802,9 +866,11 @@ class ActivityStreamSource(ActivityStreamSourceMixin, item.Item):
 
 
 
-NS_VCS = 'http://mediamatic.nl/ns/spec/vcs/2010/'
-
 class CommitsSource(ActivityStreamSourceMixin, item.Item):
+    """
+    Mediamatic Subversion commits source.
+    """
+
     title = "Commits"
 
     feed = attributes.reference()
