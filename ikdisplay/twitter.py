@@ -129,6 +129,8 @@ class TwitterMonitor(service.Service):
             log.msg("No Twitter terms or users to filter on. Not connecting.")
             return False
 
+        self.continueTrying = True
+
         args = {}
         if self.terms:
             args['track'] = ','.join(self.terms)
