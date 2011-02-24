@@ -309,7 +309,7 @@ class VoteSourceMixin(PubSubSourceMixin):
         answer = self._voteToAnswer(payload)
 
         if not title:
-            title = self.texts['alien']
+            title = self.texts[self.feed.language]['alien']
 
         template = getattr(self, 'template', None) or self.texts[self.feed.language]['voted']
         subtitle = template % answer
