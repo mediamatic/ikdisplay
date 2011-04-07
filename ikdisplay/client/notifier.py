@@ -31,6 +31,8 @@ class NotifierParentPage(LivePage):
 
     TRANSPORT_IDLE_TIMEOUT = 60
 
+    jsClass = u'Notifier.NotifierPage'
+
     def __init__(self, controller, style):
         LivePage.__init__(self)
         self.controller = controller
