@@ -486,28 +486,101 @@ class IkCamSourceTest(unittest.TestCase, PubSubSourceTests):
 
     def test_formatPayload(self):
         xml = """
-<notification xmlns="http://mediamatic.nl/ns/ikcam/2009/notification">
-  <participants>
-    <participant>After Midnight</participant>
-  </participants>
-  <title_template>%(names)s bij Noord</title_template>
-  <body_template>Deze foto is genomen bij de tentoonstelling Noord van Mediamatic.</body_template>
-  <event>
-    <title>Noord exhibition</title>
-    <id>162070</id>
-  </event>
-  <picture>
-    <thg_id>163884</thg_id>
-    <rsc_uri>http://www.mediamatic.net/id/163884</rsc_uri>
-    <attachment_uri>http://fast.mediamatic.nl/f/sjnh/image/734/163884-600-480.jpg</attachment_uri>
-  </picture>
-</notification>"""
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2011-03-30T14:02:31+02:00</published>
+  <updated>2011-03-30T14:02:31+02:00</updated>
+  <id>http://ixion.local/activity/832</id>
+  <title type="html">&lt;a href="http://ixion.local/person/421/nl"&gt;aapje&lt;/a&gt; maakte een &lt;a href="http://ixion.local/page/613/nl"&gt;zelfportret&lt;/a&gt; tijdens &lt;a href="http://ixion.local/page/528/nl"&gt;Eurosonic Noorderslag&lt;/a&gt;.</title>
+  <link rel="alternate" type="text/html" href="http://ixion.local/page/613/nl"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2010/activitystreams/ikcam</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://ixion.local/id/613</id>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/attachment</object-type>
+    <title xmlns="http://www.w3.org/2005/Atom">asfd at Eurosonic Noorderslag</title>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="alternate" href="http://ixion.local/page/613/nl"/>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="enclosure" href="http://ixion.local/image/804/613-480-360.jpg"/>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="figure" href="http://ixion.local/figure/613"/>
+  </object>
+  <target xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://ixion.local/id/528</id>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/artefact</object-type>
+    <title xmlns="http://www.w3.org/2005/Atom">Eurosonic Noorderslag</title>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="alternate" href="http://ixion.local/page/528/nl"/>
+  </target>
+  <author>
+    <id>http://ixion.local/id/421</id>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+    <link rel="alternate" href="http://ixion.local/person/421/nl"/>
+    <name>aapje</name>
+    <uri>http://ixion.local/person/421/nl</uri>
+  </author>
+  <agent xmlns="http://mediamatic.nl/ns/anymeta/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://ixion.local/id/526</id>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+    <title xmlns="http://www.w3.org/2005/Atom">ikCam Agent</title>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="alternate" href="http://ixion.local/person/526/nl"/>
+  </agent>
+</entry>"""
 
+        self.source.event = source.Thing(uri=u'http://ixion.local/id/528')
         notification = formatPayload(self.source, xml)
-        self.assertEquals(u'After Midnight', notification['title'])
-        self.assertEquals(u'took a self-portrait at Noord exhibition',
+        self.assertEquals(u'aapje', notification['title'])
+        self.assertEquals(u'took a self-portrait at Eurosonic Noorderslag',
                           notification['subtitle'])
+        self.assertEquals(u'http://ixion.local/figure/613?width=480', notification['picture'])
 
+
+    def test_formatPayloadMultiple(self):
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2011-03-30T16:49:31+02:00</published>
+  <updated>2011-03-30T16:49:31+02:00</updated>
+  <id>http://ixion.local/activity/834</id>
+  <title type="html">&lt;a href="http://ixion.local/person/521/nl"&gt;Arjan&lt;/a&gt; en &lt;a href="http://ixion.local/person/421/nl"&gt;aapje&lt;/a&gt; maakten samen een &lt;a href="http://ixion.local/page/614/nl"&gt;groepsfoto&lt;/a&gt; tijdens &lt;a href="http://ixion.local/page/528/nl"&gt;Eurosonic Noorderslag&lt;/a&gt;.</title>
+  <link rel="alternate" type="text/html" href="http://ixion.local/page/614/nl"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2010/activitystreams/ikcam</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://ixion.local/id/614</id>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/attachment</object-type>
+    <title xmlns="http://www.w3.org/2005/Atom">Arjan en asfd at Eurosonic Noorderslag</title>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="alternate" href="http://ixion.local/page/614/nl"/>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="enclosure" href="http://ixion.local/image/789/614-480-360.jpg"/>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="figure" href="http://ixion.local/figure/614"/>
+  </object>
+  <target xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://ixion.local/id/528</id>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/artefact</object-type>
+    <title xmlns="http://www.w3.org/2005/Atom">Eurosonic Noorderslag</title>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="alternate" href="http://ixion.local/page/528/nl"/>
+  </target>
+  <author>
+    <id>http://ixion.local/id/521</id>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+    <link rel="alternate" href="http://ixion.local/person/521/nl"/>
+    <name>Arjan</name>
+    <uri>http://ixion.local/person/521/nl</uri>
+  </author>
+  <author>
+    <id>http://ixion.local/id/421</id>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+    <link rel="alternate" href="http://ixion.local/person/421/nl"/>
+    <name>aapje</name>
+    <uri>http://ixion.local/person/421/nl</uri>
+  </author>
+  <agent xmlns="http://mediamatic.nl/ns/anymeta/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://ixion.local/id/526</id>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+    <title xmlns="http://www.w3.org/2005/Atom">ikCam Agent</title>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="alternate" href="http://ixion.local/person/526/nl"/>
+  </agent>
+</entry>
+"""
+        self.source.event = source.Thing(uri=u'http://ixion.local/id/528')
+        notification = formatPayload(self.source, xml)
+        self.assertEquals(u'Arjan and aapje', notification['title'])
+        self.assertEquals(u'took a group portrait at Eurosonic Noorderslag',
+                          notification['subtitle'])
+        self.assertEquals(u'http://ixion.local/figure/614?width=480', notification['picture'])
 
 
 class RegDeskSourceTest(unittest.TestCase, PubSubSourceTests):

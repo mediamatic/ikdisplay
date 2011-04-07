@@ -160,9 +160,12 @@ class PubSubSourceMixin(SourceMixin):
 
 
     def itemsReceived(self, event):
-        notifications = self.format(event)
-        if notifications:
-            self.feed.processNotifications(notifications)
+        try:
+            notifications = self.format(event)
+            if notifications:
+                self.feed.processNotifications(notifications)
+        except:
+            log.err()
 
 
     def getNode(self):
@@ -521,85 +524,6 @@ class TwitterSource(SourceMixin, item.Item):
 
 
 
-class IkCamSource(PubSubSourceMixin, item.Item):
-    title = "IkCam pictures"
-
-    feed = attributes.reference()
-    enabled = attributes.boolean()
-    subscription = attributes.reference()
-    via = attributes.text()
-    event = attributes.reference("""
-    Reference to the event the pictures were taken at.
-    """)
-    creator = attributes.reference("""
-    Reference to the creator of the pictures.
-    """)
-
-    TEXTS_NL = {
-            'via': 'ikCam',
-            'ikcam_picture_singular': u'ging op de foto',
-            'ikcam_picture_plural': u'gingen op de foto',
-            'ikcam_event': u' bij %s',
-            }
-    TEXTS_EN = {
-            'via': 'ikCam',
-            'ikcam_picture_singular': u'took a self-portrait',
-            'ikcam_picture_plural': u'took a group portrait',
-            'ikcam_event': u' at %s',
-            }
-
-    def format_payload(self, payload):
-        texts = self.texts[self.feed.language]
-
-        participants = [unicode(element)
-                        for element in payload.participants.elements()
-                        if element.name == 'participant']
-
-        if not participants:
-            return
-        elif len(participants) == 1:
-            subtitle = texts['ikcam_picture_singular']
-        else:
-            subtitle = texts['ikcam_picture_plural']
-
-        if payload.event:
-            subtitle += texts['ikcam_event'] % unicode(payload.event.title)
-
-        pictureElement = payload.picture.attachment_uri or payload.picture.rsc_uri
-
-        return {'title': u', '.join(participants),
-                'subtitle': subtitle,
-                'icon': u'http://docs.mediamatic.nl/images/ikcam-80x80.png',
-                'picture': unicode(pictureElement),
-                }
-
-
-    def getNode(self):
-        nodeIdentifier = 'ikcam/'
-        if self.creator:
-            service = getPubSubService(self.creator.uri)
-            nodeIdentifier += getThingID(self.creator.uri)
-        elif self.event:
-            service = getPubSubService(self.event.uri)
-            nodeIdentifier += 'by_event/' + getThingID(self.event.uri)
-        else:
-            return None
-
-        return service, nodeIdentifier
-
-
-
-    def renderTitle(self):
-        s = self.title
-        if self.event:
-            s += " for the event " + self.event.title
-        if self.creator:
-            s += " created by " + self.creator.title
-        return s
-
-
-
-
 class RegDeskSource(PubSubSourceMixin, item.Item):
     title = "Registration desk"
 
@@ -876,6 +800,114 @@ class ActivityStreamSource(ActivityStreamSourceMixin, item.Item):
 
 
 
+class IkCamSource(ActivityStreamSourceMixin, item.Item):
+    title = "IkCam pictures"
+
+    feed = attributes.reference()
+    enabled = attributes.boolean()
+    subscription = attributes.reference()
+    via = attributes.text()
+    event = attributes.reference("""
+    Reference to the event the pictures were taken at.
+    """)
+    creator = attributes.reference("""
+    Reference to the creator of the pictures.
+    """)
+
+    ikCamVerb = NS_ANYMETA_ACTIVITY + 'ikcam'
+
+    TEXTS_NL = {
+            'via': 'ikCam',
+            'ikcam_picture_singular': u'ging op de foto',
+            'ikcam_picture_plural': u'gingen op de foto',
+            'ikcam_event': u' bij %s',
+            }
+    TEXTS_EN = {
+            'via': 'ikCam',
+            'ikcam_picture_singular': u'took a self-portrait',
+            'ikcam_picture_plural': u'took a group portrait',
+            'ikcam_event': u' at %s',
+            }
+
+
+    def format_payload(self, payload):
+        """
+        Render the payload into a notification.
+
+        If available, this uses the anyMeta specific 'figure' links to point to
+        scaled-and-cropped versions of the image used for the actor (icon) or
+        the object (picture).
+        """
+        texts = self.texts[self.feed.language]
+
+        verbs = set([unicode(element)
+                 for element in payload.elements(NS_ACTIVITY_SPEC, 'verb')])
+
+        if self.ikCamVerb not in verbs:
+            return None
+
+        # filter out ikcam notifications from other agents
+        if payload.agent and self.creator and unicode(payload.agent.id) != self.creator.uri:
+            return None
+
+        # filter out ikcam notifications from other events
+        if payload.target and self.event and unicode(payload.target.id) != self.event.uri:
+            return None
+
+        from twisted.words.xish.domish import generateElementsQNamed
+        actors = generateElementsQNamed(payload.elements(), 'author', NS_ATOM)
+        names = reduce(lambda x, y: x+y, [list(generateElementsQNamed(actor.elements(), 'name', NS_ATOM)) for actor in actors], [])
+        actorTitles = [unicode(element) for element in names]
+
+        if not actorTitles:
+            return
+        elif len(actorTitles) == 1:
+            subtitle = texts['ikcam_picture_singular']
+        else:
+            subtitle = texts['ikcam_picture_plural']
+
+        if payload.target:
+            subtitle += texts['ikcam_event'] % unicode(payload.target.title)
+
+        pictureURI = None
+        for element in payload.object.elements(NS_ATOM, 'link'):
+            if element.getAttribute('rel', 'alternate') == 'figure':
+                pictureURI = element.getAttribute('href')
+                break
+        if pictureURI:
+            pictureURI += '?width=480'
+
+        return {'title': unicode(implodeNames(actorTitles, self.feed.language)),
+                'subtitle': subtitle,
+                'icon': u'http://docs.mediamatic.nl/images/ikcam-80x80.png',
+                'picture': pictureURI,
+                }
+
+
+    def getNode(self):
+        nodeIdentifier = 'ikcam/'
+        if self.creator:
+            service = getPubSubService(self.creator.uri)
+            nodeIdentifier += getThingID(self.creator.uri)
+        elif self.event:
+            service = getPubSubService(self.event.uri)
+            nodeIdentifier += 'by_event/' + getThingID(self.event.uri)
+        else:
+            return None
+
+        return service, nodeIdentifier
+
+
+    def renderTitle(self):
+        s = self.title
+        if self.event:
+            s += " for the event " + self.event.title
+        if self.creator:
+            s += " created by " + self.creator.title
+        return s
+
+
+
 class CommitsSource(ActivityStreamSourceMixin, item.Item):
     """
     Mediamatic Subversion commits source.
@@ -916,6 +948,14 @@ class CommitsSource(ActivityStreamSourceMixin, item.Item):
 
     def getVia(self):
         return 'Subversion'
+
+
+def implodeNames(names, lang):
+    lastsep = {'en': ' and ',
+               'nl': ' en '}[lang]
+    if len(names) < 3:
+        return lastsep.join(names)
+    return ', '.join(names[:-1]) + lastsep + names[-1]
 
 
 
