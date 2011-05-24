@@ -649,6 +649,7 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
                 NS_ACTIVITY_SCHEMA + 'make-friend': 'werd vrienden met %(object)s',
                 NS_ACTIVITY_SCHEMA + 'update': 'paste %(object)s aan',
                 NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'komt naar %(object)s',
+                NS_ACTIVITY_SCHEMA + 'checkin': 'was bij %(object)s',
                 NS_ANYMETA_ACTIVITY + 'link-to': 'linkte naar %(object)s vanaf %(target)s',
                 NS_ANYMETA_ACTIVITY + 'status-update': None,
                 NS_ANYMETA_ACTIVITY + 'iktag': 'koppelde een ikTag',
@@ -665,6 +666,7 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
                 NS_ACTIVITY_SCHEMA + 'make-friend': 'friended %(object)s',
                 NS_ACTIVITY_SCHEMA + 'update': 'updated %(object)s',
                 NS_ACTIVITY_SCHEMA + 'rsvp-yes': 'will attend %(object)s',
+                NS_ACTIVITY_SCHEMA + 'checkin': 'was at %(object)s',
                 NS_ANYMETA_ACTIVITY + 'link-to': 'linked to %(object)s from %(target)s',
                 NS_ANYMETA_ACTIVITY + 'status-update': None,
                 NS_ANYMETA_ACTIVITY + 'iktag': 'linked an ikTag',
@@ -684,7 +686,6 @@ class ActivityStreamSourceMixin(PubSubSourceMixin):
         scaled-and-cropped versions of the image used for the actor (icon) or
         the object (picture).
         """
-
         verbs = set([unicode(element)
                  for element in payload.elements(NS_ACTIVITY_SPEC, 'verb')])
 
@@ -950,6 +951,44 @@ class CommitsSource(ActivityStreamSourceMixin, item.Item):
         return 'Subversion'
 
 
+class CheckinsSource(ActivityStreamSourceMixin, item.Item):
+    """
+    anyMeta Activity Streams source for checkins
+    """
+
+    title = "Checkins"
+
+    feed = attributes.reference()
+    enabled = attributes.boolean()
+    via = attributes.text()
+    subscription = attributes.reference()
+    site = attributes.reference("""
+    Reference to the site representing where activities occur.
+    """)
+
+    supportedVerbs = (
+                NS_ACTIVITY_SCHEMA + 'checkin',
+                )
+
+    agentVerbs = frozenset((
+                NS_ACTIVITY_SCHEMA + 'checkin',
+                ))
+
+    def getNode(self):
+        if self.site is not None:
+            return (getPubSubService(self.site.uri), u'activity')
+
+
+    def renderTitle(self):
+        s = "%s from %s" % (self.title, (self.site and self.site.title) or "?")
+        return s
+
+
+    def getVia(self):
+        return self.site.title
+
+
+
 def implodeNames(names, lang):
     lastsep = {'en': ' and ',
                'nl': ' en '}[lang]
@@ -971,6 +1010,7 @@ allSources = [
     RaceSource,
     ActivityStreamSource,
     CommitsSource,
+    CheckinsSource,
     ]
 """
 The global list of all sources.

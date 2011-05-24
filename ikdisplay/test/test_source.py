@@ -884,3 +884,61 @@ class ActivityStreamTest(unittest.TestCase, PubSubSourceTests):
         service, nodeIdentifier = self.source.getNode()
         self.assertEqual('dwaal.local', service.full())
         self.assertEqual('activity', nodeIdentifier)
+
+
+
+class CheckinsSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.CheckinsSource}.
+    """
+
+    def setUp(self):
+        site = source.Site(uri=u'http://ixion.local/')
+        self.source = source.CheckinsSource(site=site)
+
+
+    def test_formatPayloadCheckin(self):
+        """
+        A checkin entry
+        """
+        xml = """
+        <entry xmlns="http://www.w3.org/2005/Atom">
+          <published>2011-05-06T15:41:08+02:00</published>
+          <updated>2011-05-06T15:41:08+02:00</updated>
+          <id>http://ixion.local/activity/1541</id>
+          <title type="html">&lt;a href="http://ixion.local/person/964/nl"&gt;Arjan van der Wal&lt;/a&gt; was bij &lt;a href="http://ixion.local/page/113/nl"&gt;Amsterdam&lt;/a&gt;.</title>
+          <link href="http://ixion.local/page/113/nl" type="text/html" rel="alternate"/>
+          <verb xmlns="http://activitystrea.ms/spec/1.0/">http://activitystrea.ms/schema/1.0/checkin</verb>
+          <object xmlns="http://activitystrea.ms/spec/1.0/">
+            <id xmlns="http://www.w3.org/2005/Atom">http://ixion.local/id/113</id>
+            <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/location</object-type>
+            <title xmlns="http://www.w3.org/2005/Atom">Amsterdam</title>
+            <link xmlns="http://www.w3.org/2005/Atom" href="http://ixion.local/page/113/nl" rel="alternate"/>
+          </object>
+          <target xmlns="http://activitystrea.ms/spec/1.0/">
+            <id xmlns="http://www.w3.org/2005/Atom">http://ixion.local/id/964</id>
+            <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+            <title xmlns="http://www.w3.org/2005/Atom">Arjan van der Wal</title>
+            <link xmlns="http://www.w3.org/2005/Atom" href="http://ixion.local/person/964/nl" rel="alternate"/>
+            <link xmlns="http://www.w3.org/2005/Atom" href="http://ixion.local/image/570/965-200-200.jpg" rel="enclosure"/>
+            <link xmlns="http://www.w3.org/2005/Atom" href="http://ixion.local/figure/964" rel="figure"/>
+          </target>
+          <author>
+            <id>http://ixion.local/id/964</id>
+            <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+            <link href="http://ixion.local/person/964/nl" rel="alternate"/>
+            <link href="http://ixion.local/image/570/965-200-200.jpg" rel="enclosure"/>
+            <link href="http://ixion.local/figure/964" rel="figure"/>
+            <name>Arjan van der Wal</name>
+            <uri>http://ixion.local/person/964/nl</uri>
+          </author>
+          <agent xmlns="http://mediamatic.nl/ns/anymeta/">
+            <id xmlns="http://www.w3.org/2005/Atom">http://ixion.local/id/1</id>
+            <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+            <title xmlns="http://www.w3.org/2005/Atom"/>
+            <link xmlns="http://www.w3.org/2005/Atom" href="http://ixion.local/id/1" rel="alternate"/>
+          </agent>
+        </entry>"""
+        notification = formatPayload(self.source, xml)
+        self.assertEquals(u'Arjan van der Wal', notification['title'])
+        self.assertEquals(u'was at Amsterdam', notification['subtitle'])
