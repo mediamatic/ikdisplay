@@ -552,7 +552,7 @@ class RegDeskSource(PubSubSourceMixin, item.Item):
             }
 
     def format_payload(self, payload):
-        subtitle = random.choice(self.texts['regdesk'])
+        subtitle = random.choice(self.texts[self.feed.language]['regdesk'])
 
         if payload.person:
             return {'title': unicode(payload.person.title),
@@ -591,8 +591,8 @@ class RaceSource(PubSubSourceMixin, item.Item):
             }
 
     def format_payload(self, payload):
-        subtitle = self.texts['race_finish'] % (unicode(payload.event),
-                                                unicode(payload.time))
+        subtitle = self.texts[self.feed.language]['race_finish'] % (unicode(payload.event),
+                                                                    unicode(payload.time))
 
         return {'title': unicode(payload.person.title),
                 'subtitle': subtitle,
