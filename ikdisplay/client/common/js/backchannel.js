@@ -12,7 +12,8 @@ backChannel =
         pubsubService: 'feeds.mediamatic.nl',
         nodeIdentifier: 'mediamatic',
         itemAmount: 13,
-        itemList:   '.list-ikdisplay-backchannel'
+        itemList: '.list-ikdisplay-backchannel',
+        resetHeight: true // For style 'beamer' this should be false.
     },
     
     addMessage: function(message, callback)
@@ -44,7 +45,9 @@ backChannel =
                 .animate({height: clonedItemHeight}, 600, function() 
                 {
                     $(this).animate({opacity: 1}, 300, function() {
-                        $(this).css('height', 'auto');
+                        if (backChannel.options.resetHeight) {
+                            $(this).css('height', 'auto');
+                        }
                         callback();
                         });
                 })

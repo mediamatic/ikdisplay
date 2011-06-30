@@ -1,17 +1,29 @@
-<html xmlns:n="http://nevow.com/ns/nevow/0.1">
+<html>
     <head>
+        <title>ikDisplay</title>
         <link href="static/zp-compressed.css" type="text/css" media="screen, print" rel="stylesheet" />
         <link href="static/livestream_screen_ikcam.css" type="text/css" media="screen, print" rel="stylesheet" />
-        <n:invisible n:render="liveglue" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="format-detection" content="telephone=no" />
+        <link rel="apple-touch-icon" type="image/png"
+              href="static/ik-57x57.png" />
+        <link rel="apple-touch-icon" type="image/png"
+              href="static/ik-72x72.png" sizes="72x72" />
+        <link rel="apple-touch-icon" type="image/png"
+              href="static/ik-114x114.png" sizes="114x114" />
+        <script src='js/strophe.js'></script>
+        <script src='js/strophe.pubsub.js'></script>
+        <script src="js/jquery.combined.min.js"></script>
+        <script src="js/jquery.query.js"></script>
+        <script src="js/backchannel.js"></script>
+        <script>
+            if ($.query.get('node')) {
+                backChannel.options.nodeIdentifier = $.query.get('node');
+            };
+        </script>
     </head>
     <body>
-        <div n:render="notifier">Notifier Goes Here</div>
-
-        <div class="notifier" id="notifier" n:pattern="NotifierPattern"
-             n:render="liveElement"
-             xmlns:athena="http://divmod.org/ns/athena/0.7">
-        </div>
-
         <ul class="list-ikdisplay-backchannel">
             <li class="backchannel-item clone-item">
                 <div class="list-ikdisplay-backchannel-wrap clearfix">
@@ -31,8 +43,6 @@
                 </div>
             </li>
         </ul>
-
-    <!-- <img src="static/fade.png" class="fader" /> -->
 
         <div class="tmp"></div>
     </body>
