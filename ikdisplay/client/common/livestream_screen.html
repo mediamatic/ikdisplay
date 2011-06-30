@@ -1,4 +1,4 @@
-<html xmlns:n="http://nevow.com/ns/nevow/0.1">
+<html>
     <head>
         <title>ikDisplay</title>
         <link href="static/zp-compressed.css" type="text/css" media="screen, print" rel="stylesheet" />
@@ -15,7 +15,13 @@
         <script src='js/strophe.js'></script>
         <script src='js/strophe.pubsub.js'></script>
         <script src="js/jquery.combined.min.js"></script>
+        <script src="js/jquery.query.js"></script>
         <script src="js/backchannel.js"></script>
+        <script>
+            if ($.query.get('node')) {
+                backChannel.options.nodeIdentifier = $.query.get('node');
+            };
+        </script>
     </head>
     <body>
         <ul class="list-ikdisplay-backchannel">
@@ -37,8 +43,6 @@
                 </div>
             </li>
         </ul>
-
-    <!-- <img src="static/fade.png" class="fader" /> -->
 
         <div class="tmp"></div>
     </body>
