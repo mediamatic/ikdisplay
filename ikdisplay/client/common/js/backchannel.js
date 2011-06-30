@@ -13,6 +13,7 @@ backChannel =
         nodeIdentifier: 'mediamatic',
         itemAmount: 13,
         itemList: '.list-ikdisplay-backchannel',
+        reconnectInterval: 3000,
         resetHeight: true // For style 'beamer' this should be false.
     },
     
@@ -130,6 +131,61 @@ backChannel =
             });
     },
 
+    connect: function () {
+        backChannel.connection.connect(backChannel.options.jid,
+                                       backChannel.options.password,
+                                       backChannel.on_connect);
+    },
+
+    reconnect: function() {
+        backChannel.connection.reset();
+        setTimeout(backChannel.connect,
+                   backChannel.options.reconnectInterval);
+    },
+
+    on_connect: function (status) {
+        if (status === Strophe.Status.CONNECTED) {
+            backChannel.log("Connection established.");
+            backChannel.on_connected();
+        } else if (status === Strophe.Status.CONNFAIL) {
+            backChannel.log("Failed to connect!");
+            backChannel.reconnect();
+        } else if (status === Strophe.Status.AUTHFAIL) {
+            backChannel.log("Failed to authenticate!");
+            backChannel.reconnect();
+        } else if (status === Strophe.Status.DISCONNECTED) {
+            backChannel.log("Connection terminated.");
+            backChannel.reconnect();
+        }
+
+        return true;
+    },
+
+    on_connected: function () {
+        backChannel.connection.send($pres().c('priority').t('-1'));
+        backChannel.connection.pubsub.subscribe(
+            backChannel.connection.jid,
+            backChannel.options.pubsubService,
+            backChannel.options.nodeIdentifier,
+            [],
+            backChannel.on_event,
+            backChannel.on_subscribe
+          );
+
+        // Retrieve last items.
+        var pub = $iq({from: backChannel.connection.jid,
+                       to: backChannel.options.pubsubService,
+                       type: 'get'})
+
+        pub.c('pubsub', { xmlns:Strophe.NS.PUBSUB })
+            .c('items', {
+                node: backChannel.options.nodeIdentifier,
+                max_items: backChannel.options.itemAmount, 
+            });
+
+        backChannel.connection.sendIQ(pub.tree(), backChannel.on_items, null);
+    },
+
     on_event: function (message) {
         backChannel.log("Received event.");
 
@@ -160,55 +216,5 @@ $(document).ready(function () {
     backChannel.connection.rawInput = backChannel.raw_input;
     backChannel.connection.rawOutput = backChannel.raw_output;
 
-    $(document).trigger('connect');
-});
-
-$(document).bind('connect', function (ev) {
-    var data = {jid: backChannel.options.jid,
-                password: backChannel.options.password
-                }
-
-    backChannel.connection.connect(data.jid, data.password, function (status) {
-        if (status === Strophe.Status.CONNECTED) {
-            $(document).trigger('connected');
-        } else if (status === Strophe.Status.DISCONNECTED) {
-            $(document).trigger('disconnected');
-        }
-    });
-});
-
-$(document).bind('connected', function () {
-    // inform the user
-    backChannel.log("Connection established.");
-
-    backChannel.connection.send($pres().c('priority').t('-1'));
-    backChannel.connection.pubsub.subscribe(
-        backChannel.connection.jid,
-        backChannel.options.pubsubService,
-        backChannel.options.nodeIdentifier,
-        [],
-        backChannel.on_event,
-        backChannel.on_subscribe
-      );
-
-    // Retrieve last items.
-    var pub = $iq({from: backChannel.connection.jid,
-                   to: backChannel.options.pubsubService,
-                   type: 'get'})
-
-    pub.c('pubsub', { xmlns:Strophe.NS.PUBSUB })
-        .c('items', {
-            node: backChannel.options.nodeIdentifier,
-            max_items: backChannel.options.itemAmount, 
-        });
-
-    backChannel.connection.sendIQ(pub.tree(), backChannel.on_items, null);
-});
-
-$(document).bind('disconnected', function () {
-    backChannel.log("Connection terminated.");
-
-    // remove dead connection object
-    backChannel.connection.reset();
-    $(document).trigger('connect');
+    backChannel.connect();
 });
