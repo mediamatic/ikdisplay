@@ -1,11 +1,16 @@
+jQuery.fn.reverse = [].reverse;
+
 backChannel = 
 {
     connection: null,
-    start_time: null,
     show_raw: 0,
-    theQueue: $({}),
 
     options: {
+        service: 'http://www.mediamatic.nl/http-bind/',
+        jid: 'bosh.mediamatic.nl',
+        password: '',
+        pubsubService: 'feeds.mediamatic.nl',
+        nodeIdentifier: 'mediamatic',
         itemAmount: 13,
         itemList:   '.list-ikdisplay-backchannel'
     },
@@ -139,35 +144,34 @@ backChannel =
 
     on_items: function (items) {
         backChannel.log("Got items");
-        $(items).find('item').each(function () {
+        $(items).find('item').slice(1).reverse().each(function () {
             backChannel.notify(this);
         });
     }
 }
 
 $(document).ready(function () {
-    $(document).trigger('connect', {
-                    jid: 'bosh.mediamatic.nl',
-                    password: ''
-                });
-});
-
-$(document).bind('connect', function (ev, data) {
-    var conn = new Strophe.Connection(
-        "http://www.mediamatic.nl/http-bind/");
+    var conn = new Strophe.Connection(backChannel.options.service);
 
     backChannel.connection = conn;
     backChannel.connection.rawInput = backChannel.raw_input;
     backChannel.connection.rawOutput = backChannel.raw_output;
 
-    conn.connect(data.jid, data.password, function (status) {
+    $(document).trigger('connect');
+});
+
+$(document).bind('connect', function (ev) {
+    var data = {jid: backChannel.options.jid,
+                password: backChannel.options.password
+                }
+
+    backChannel.connection.connect(data.jid, data.password, function (status) {
         if (status === Strophe.Status.CONNECTED) {
             $(document).trigger('connected');
         } else if (status === Strophe.Status.DISCONNECTED) {
             $(document).trigger('disconnected');
         }
     });
-
 });
 
 $(document).bind('connected', function () {
@@ -177,29 +181,31 @@ $(document).bind('connected', function () {
     backChannel.connection.send($pres().c('priority').t('-1'));
     backChannel.connection.pubsub.subscribe(
         backChannel.connection.jid,
-        'feeds.mediamatic.nl',
-        'mediamatic',
+        backChannel.options.pubsubService,
+        backChannel.options.nodeIdentifier,
         [],
         backChannel.on_event,
         backChannel.on_subscribe
       );
 
+    // Retrieve last items.
     var pub = $iq({from: backChannel.connection.jid,
-                   to: 'feeds.mediamatic.nl',
-                   type:'get'})
+                   to: backChannel.options.pubsubService,
+                   type: 'get'})
 
-    pub.c('pubsub',
-    { xmlns:Strophe.NS.PUBSUB }).c('items', {node: 'mediamatic',
-                                             max_items: '13'
-                                             });
+    pub.c('pubsub', { xmlns:Strophe.NS.PUBSUB })
+        .c('items', {
+            node: backChannel.options.nodeIdentifier,
+            max_items: backChannel.options.itemAmount, 
+        });
 
     backChannel.connection.sendIQ(pub.tree(), backChannel.on_items, null);
-
 });
 
 $(document).bind('disconnected', function () {
     backChannel.log("Connection terminated.");
 
     // remove dead connection object
-    backChannel.connection = null;
+    backChannel.connection.reset();
+    $(document).trigger('connect');
 });
