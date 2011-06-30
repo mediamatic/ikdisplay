@@ -951,6 +951,53 @@ class CommitsSource(ActivityStreamSourceMixin, item.Item):
         return 'Subversion'
 
 
+
+class WoWSource(ActivityStreamSourceMixin, item.Item):
+    """
+    Write on Wall Activity Stream source.
+    """
+
+    title = "WoW Stream"
+
+    feed = attributes.reference()
+    enabled = attributes.boolean()
+    via = attributes.text()
+    subscription = attributes.reference()
+    agent = attributes.reference("""
+    Reference to the thing representing the agent of the activities.
+    """)
+
+    supportedVerbs = (
+                NS_ACTIVITY_SCHEMA + 'post',
+                NS_ACTIVITY_SCHEMA + 'like',
+                )
+
+    agentVerbs = frozenset((
+                NS_ACTIVITY_SCHEMA + 'post',
+                NS_ACTIVITY_SCHEMA + 'like',
+                ))
+
+    def getNode(self):
+        if self.agent is not None:
+            return (getPubSubService(self.agent.uri), u'activity')
+
+
+    def format_payload(self, payload):
+        if not payload.agent or unicode(payload.agent.id) != self.agent.uri:
+            return None
+
+        return ActivityStreamSourceMixin.format_payload(self, payload)
+
+
+    def renderTitle(self):
+        return self.title
+
+
+    def getVia(self):
+        return self.via
+
+
+
 class CheckinsSource(ActivityStreamSourceMixin, item.Item):
     """
     anyMeta Activity Streams source for checkins
@@ -1010,6 +1057,7 @@ allSources = [
     RaceSource,
     ActivityStreamSource,
     CommitsSource,
+    WoWSource,
     CheckinsSource,
     ]
 """

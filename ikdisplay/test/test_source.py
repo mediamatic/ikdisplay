@@ -603,7 +603,7 @@ class RaceSourceTest(unittest.TestCase, PubSubSourceTests):
 
 
 
-class ActivityStreamTest(unittest.TestCase, PubSubSourceTests):
+class ActivityStreamSourceTest(unittest.TestCase, PubSubSourceTests):
     """
     Tests for L{ikdisplay.source.ActivityStreamSource}.
     """
@@ -884,6 +884,120 @@ class ActivityStreamTest(unittest.TestCase, PubSubSourceTests):
         service, nodeIdentifier = self.source.getNode()
         self.assertEqual('dwaal.local', service.full())
         self.assertEqual('activity', nodeIdentifier)
+
+
+
+class WoWSourceTest(unittest.TestCase, PubSubSourceTests):
+    """
+    Tests for L{ikdisplay.source.WoWSource}.
+    """
+
+    def setUp(self):
+        agent = source.Thing(uri=u'http://www.mediamatic.net/id/28344')
+        self.source = source.WoWSource(agent=agent)
+
+
+    def test_formatPayloadPostAgent(self):
+        """
+        An entry with the post verb, object type attachment, with picture.
+        """
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom"> <published>2010-11-19T12:16:18+01:00</published>
+  <updated>2010-11-19T12:16:18+01:00</updated>
+  <id>http://www.mediamatic.net/activity/1053</id>
+  <title type="html">anyMeta Cyborg created Evelyn, Simon, Axel at Dev Camp \xe2\x80\x9910 \xe2\x80\x94 IkSentric.</title>
+  <link href="http://www.mediamatic.net/id/167544" type="text/html" rel="alternate"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://activitystrea.ms/schema/1.0/post</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://www.mediamatic.net/id/167544</id>
+    <title xmlns="http://www.w3.org/2005/Atom">Evelyn, Simon, Axel at Dev Camp \xe2\x80\x9910 \xe2\x80\x94 IkSentric</title>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/attachment</object-type>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="enclosure" href="http://fast.mediamatic.nl/f/sjnh/image/403/167544-600-375.jpg"/>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="figure" href="http://www.mediamatic.net/figure/167544"/>
+  </object>
+  <author>
+    <id>http://www.mediamatic.net/id/28344</id>
+    <uri>http://www.mediamatic.net/id/28344</uri>
+    <name>anyMeta Cyborg</name>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </author>
+  <agent xmlns='http://mediamatic.nl/ns/anymeta/'>
+    <id xmlns='http://www.w3.org/2005/Atom'>http://www.mediamatic.net/id/28344</id>
+    <object-type xmlns='http://activitystrea.ms/spec/1.0/'>http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+    <title xmlns='http://www.w3.org/2005/Atom'>anyMeta Cyborg</title>
+    <link rel='alternate' href='http://www.mediamatic.net/id/28344' xmlns='http://www.w3.org/2005/Atom'/>
+    <link rel='enclosure' href='http://fast.mediamatic.nl/f/sjnh/image/456/29055-480-360.jpg' xmlns='http://www.w3.org/2005/Atom'/>
+    <link rel='figure' href='http://www.mediamatic.net/figure/28344' xmlns='http://www.w3.org/2005/Atom'/>
+  </agent>
+</entry>"""
+
+        notification = formatPayload(self.source, xml)
+        self.assertNotIdentical(None, notification)
+
+
+    def test_formatPayloadPostNoAgent(self):
+        """
+        An entry with the post verb, object type attachment, with picture.
+        """
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2010-11-19T12:16:18+01:00</published>
+  <updated>2010-11-19T12:16:18+01:00</updated>
+  <id>http://www.mediamatic.net/activity/1053</id>
+  <title type="html">anyMeta Cyborg created Evelyn, Simon, Axel at Dev Camp \xe2\x80\x9910 \xe2\x80\x94 IkSentric.</title>
+  <link href="http://www.mediamatic.net/id/167544" type="text/html" rel="alternate"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://activitystrea.ms/schema/1.0/post</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://www.mediamatic.net/id/167544</id>
+    <title xmlns="http://www.w3.org/2005/Atom">Evelyn, Simon, Axel at Dev Camp \xe2\x80\x9910 \xe2\x80\x94 IkSentric</title>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/attachment</object-type>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="enclosure" href="http://fast.mediamatic.nl/f/sjnh/image/403/167544-600-375.jpg"/>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="figure" href="http://www.mediamatic.net/figure/167544"/>
+  </object>
+  <author>
+    <id>http://www.mediamatic.net/id/28344</id>
+    <uri>http://www.mediamatic.net/id/28344</uri>
+    <name>anyMeta Cyborg</name>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </author>
+</entry>"""
+
+        notification = formatPayload(self.source, xml)
+        self.assertIdentical(None, notification)
+
+
+    def test_formatPayloadPostOtherAgent(self):
+        """
+        An entry with the post verb, object type attachment, with picture.
+        """
+        xml = """
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <published>2010-11-19T12:16:18+01:00</published>
+  <updated>2010-11-19T12:16:18+01:00</updated>
+  <id>http://www.mediamatic.net/activity/1053</id>
+  <title type="html">anyMeta Cyborg created Evelyn, Simon, Axel at Dev Camp \xe2\x80\x9910 \xe2\x80\x94 IkSentric.</title>
+  <link href="http://www.mediamatic.net/id/167544" type="text/html" rel="alternate"/>
+  <verb xmlns="http://activitystrea.ms/spec/1.0/">http://activitystrea.ms/schema/1.0/post</verb>
+  <object xmlns="http://activitystrea.ms/spec/1.0/">
+    <id xmlns="http://www.w3.org/2005/Atom">http://www.mediamatic.net/id/167544</id>
+    <title xmlns="http://www.w3.org/2005/Atom">Evelyn, Simon, Axel at Dev Camp \xe2\x80\x9910 \xe2\x80\x94 IkSentric</title>
+    <object-type>http://mediamatic.nl/ns/anymeta/2008/kind/attachment</object-type>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="enclosure" href="http://fast.mediamatic.nl/f/sjnh/image/403/167544-600-375.jpg"/>
+    <link xmlns="http://www.w3.org/2005/Atom" rel="figure" href="http://www.mediamatic.net/figure/167544"/>
+  </object>
+  <author>
+    <id>http://www.mediamatic.net/id/28344</id>
+    <uri>http://www.mediamatic.net/id/28344</uri>
+    <name>anyMeta Cyborg</name>
+    <object-type xmlns="http://activitystrea.ms/spec/1.0/">http://mediamatic.nl/ns/anymeta/2008/kind/person</object-type>
+  </author>
+  <agent xmlns='http://mediamatic.nl/ns/anymeta/'>
+    <id xmlns='http://www.w3.org/2005/Atom'>http://www.mediamatic.net/id/28345</id>
+  </agent>
+</entry>"""
+
+        notification = formatPayload(self.source, xml)
+        self.assertIdentical(None, notification)
 
 
 
