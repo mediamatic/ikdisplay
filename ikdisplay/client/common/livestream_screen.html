@@ -12,16 +12,12 @@
               href="static/ik-72x72.png" sizes="72x72" />
         <link rel="apple-touch-icon" type="image/png"
               href="static/ik-114x114.png" sizes="114x114" />
-        <n:invisible n:render="liveglue" />
+        <script src='js/strophe.js'></script>
+        <script src='js/strophe.pubsub.js'></script>
+        <script src="js/jquery.combined.min.js"></script>
+        <script src="js/backchannel.js"></script>
     </head>
     <body>
-        <div n:render="notifier">Notifier Goes Here</div>
-
-        <div class="notifier" id="notifier" n:pattern="NotifierPattern"
-             n:render="liveElement"
-             xmlns:athena="http://divmod.org/ns/athena/0.7">
-        </div>
-
         <ul class="list-ikdisplay-backchannel">
             <li class="backchannel-item clone-item">
                 <div class="list-ikdisplay-backchannel-wrap clearfix">
