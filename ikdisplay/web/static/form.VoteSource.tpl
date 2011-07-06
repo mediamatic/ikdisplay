@@ -2,7 +2,7 @@
     <div>
         Question:
         <div dojoType="dojo.data.ItemFileReadStore" jsId="things" url="/api/selectThings"></div>
-        <select name="question" required="false" dojoType="dijit.form.FilteringSelect" store="things" {.section event}value="{_id}"{.end} searchAttr="title" ></select>
+        <select name="question" required="false" dojoType="dijit.form.FilteringSelect" store="things" {.section question}value="{_id}"{.end} searchAttr="title" ></select>
     </div>
 
     <div>
