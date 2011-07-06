@@ -184,14 +184,14 @@ class APIResource(resource.Resource):
 
         # Update the item
         if (source.IPubSubEventProcessor.providedBy(item) and
-            (oldNode != item.getNode or oldEnabled != item.enabled)):
+            (oldNode != item.getNode() or oldEnabled != item.enabled)):
             # Call the pubsub service to fix stuff.
             if oldEnabled:
                 self.pubsubDispatcher.removeObserver(item)
             if item.enabled:
                 self.pubsubDispatcher.addObserver(item)
 
-        if hasattr(item, 'terms') and hasattr(item, 'userIDs'):
+        if item.enabled and hasattr(item, 'terms') and hasattr(item, 'userIDs'):
             self.twitterDispatcher.refreshFilters()
 
         return item
