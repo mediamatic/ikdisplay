@@ -19,11 +19,11 @@ class TestExtractImage(unittest.TestCase):
 
 
     def testMobyPictureFull(self):
-        return self._testExtractImage("http://www.mobypicture.com/user/marjolijn/view/90053", "http://img.mobypicture.com/5bd603ae84e09ac10ce15b98f4dd5e7f_full.jpg")
+        return self._testExtractImage("http://www.mobypicture.com/user/marjolijn/view/90053", "http://a3.img.mobypicture.com/5bd603ae84e09ac10ce15b98f4dd5e7f_full.jpg")
 
 
     def testMobyPictureShort(self):
-        return self._testExtractImage("http://moby.to/1234", "http://img.mobypicture.com/5d84733aa1dd84f9bb0da21e2413acfa_full.jpg")
+        return self._testExtractImage("http://moby.to/1234", "http://a1.img.mobypicture.com/5d84733aa1dd84f9bb0da21e2413acfa_full.jpg")
 
 
     def testFlickr(self):
