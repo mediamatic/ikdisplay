@@ -4,7 +4,7 @@ Tests for L{ikdisplay.xmpp}.
 
 from zope.interface import implements
 
-from twisted.internet import defer
+from twisted.internet import defer, task
 from twisted.trial import unittest
 from twisted.words.protocols.jabber.jid import JID
 from twisted.words.xish import domish, utility
@@ -86,26 +86,14 @@ class PubSubDispatcherTest(unittest.TestCase):
         self.serviceJID = JID('pubsub.example.org')
         self.nodeIdentifier = u'test'
 
-        self.subscribeCalled = []
-        self.unsubscribeCalled = []
-
-        def subscribe(service, nodeIdentifier, subscriber,
-                      options=None, sender=None):
-            subscription = pubsub.Subscription(nodeIdentifier, subscriber,
-                                               u'subscribed', options)
-            self.subscribeCalled.append(None)
-            return defer.succeed(subscription)
-
-        def unsubscribe(service, nodeIdentifier, subscriber,
-                        subscriptionIdentifier=None, sender=None):
-            self.unsubscribeCalled.append(None)
-            return defer.succeed(None)
+        self.calls = []
+        self.clock = task.Clock()
 
         xmlstream = utility.EventDispatcher()
         self.store = store.Store()
-        self.client = xmpp.PubSubDispatcher(self.store)
-        self.client.subscribe = subscribe
-        self.client.unsubscribe = unsubscribe
+        self.client = xmpp.PubSubDispatcher(self.store, reactor=self.clock)
+        self.client.subscribe = self.subscribe
+        self.client.unsubscribe = self.unsubscribe
         self.client.parent = self
         self.client.makeConnection(xmlstream)
 
@@ -122,35 +110,93 @@ class PubSubDispatcherTest(unittest.TestCase):
                                        self.nodeIdentifier, [item], None)
 
 
+    def tearDown(self):
+        self.assertEquals([], self.clock.calls)
+
+
+    def _wrapCall(func):
+        def call(self, *args, **kwargs):
+            def cb(result):
+                self.calls.append((func.__name__, 'end'))
+                return result
+
+            self.calls.append((func.__name__, 'start'))
+            d = func(self, *args, **kwargs)
+            d.addBoth(cb)
+            return d
+
+        return call
+
+    @_wrapCall
+    def subscribe(self, service, nodeIdentifier, subscriber,
+                        options=None, sender=None):
+        subscription = pubsub.Subscription(nodeIdentifier, subscriber,
+                                           u'subscribed', options)
+        d = defer.Deferred()
+        self.clock.callLater(5, d.callback, subscription)
+        return d
+
+    @_wrapCall
+    def unsubscribe(self, service, nodeIdentifier, subscriber,
+                          subscriptionIdentifier=None, sender=None):
+        d = defer.Deferred()
+        self.clock.callLater(5, d.callback, None)
+        return d
+
+
     def test_addObserver(self):
+        """
+        When adding an observer for the first time, subscribe to the node.
+        """
         self.client.connectionInitialized()
         self.client.addObserver(self.observer)
 
-        self.assertEquals(1, len(self.subscribeCalled))
+        self.clock.advance(0)
+        self.assertEquals([('subscribe', 'start')], self.calls)
+        self.clock.advance(5)
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end')], self.calls)
 
 
     def test_addObserverTwice(self):
+        """
+        When adding an observer for a second time, don't subscribe again.
+        """
         observer2 = TestObserver(store=self.store,
                                  service=self.serviceJID,
                                  nodeIdentifier=self.nodeIdentifier)
 
         self.client.connectionInitialized()
         self.client.addObserver(self.observer)
-        self.assertEquals(1, len(self.subscribeCalled))
+        self.clock.advance(5)
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end')], self.calls)
 
         self.client.addObserver(observer2)
-        self.assertEquals(1, len(self.subscribeCalled))
+        self.clock.advance(5)
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end')], self.calls)
 
 
     def test_addObserverNotConnected(self):
+        """
+        Subscription requests can only go out after being connected.
+        """
         self.client.addObserver(self.observer)
+        self.clock.advance(5)
+        self.assertEquals([], self.calls)
 
-        self.assertEquals(0, len(self.subscribeCalled))
         self.client.connectionInitialized()
-        self.assertEquals(1, len(self.subscribeCalled))
+        self.assertEquals([('subscribe', 'start')], self.calls)
+        self.clock.advance(5)
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end')], self.calls)
 
 
     def test_addObserverNotConnectedTwice(self):
+        """
+        Two observers while not connected yield one subscription on connect.
+        """
         observer2 = TestObserver(store=self.store,
                                  service=self.serviceJID,
                                  nodeIdentifier=self.nodeIdentifier)
@@ -158,25 +204,92 @@ class PubSubDispatcherTest(unittest.TestCase):
         self.client.addObserver(self.observer)
         self.client.addObserver(observer2)
 
-        self.assertEquals(0, len(self.subscribeCalled))
+        self.assertEquals([], self.calls)
         self.client.connectionInitialized()
-        self.assertEquals(1, len(self.subscribeCalled))
+        self.clock.advance(0)
+        self.assertEquals([('subscribe', 'start')], self.calls)
+        self.clock.advance(5)
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end')], self.calls)
 
 
     def test_removeObserver(self):
+        """
+        Removing the last observer subscribes from the node.
+        """
         self.client.connectionInitialized()
         self.client.addObserver(self.observer)
+        self.clock.advance(5)
         self.client.removeObserver(self.observer)
+        self.clock.advance(5)
 
-        self.assertEquals(1, len(self.unsubscribeCalled))
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end'),
+                           ('unsubscribe', 'start'),
+                           ('unsubscribe', 'end')], self.calls)
+
+
+    def test_removeObserverBeforeSubscribed(self):
+        """
+        Wait for subscription request response before unsubscribing.
+        """
+        self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
+        self.clock.advance(0)
+        self.client.removeObserver(self.observer)
+        self.clock.advance(3)
+        self.clock.advance(2)
+        self.clock.advance(5)
+
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end'),
+                           ('unsubscribe', 'start'),
+                           ('unsubscribe', 'end')], self.calls)
 
 
     def test_removeObserverAddAgain(self):
+        """
+        Requests are sequential when re-adding observer.
+        """
         self.client.connectionInitialized()
         self.client.addObserver(self.observer)
+        self.clock.advance(5)
         self.client.removeObserver(self.observer)
+        self.clock.advance(5)
         self.client.addObserver(self.observer)
-        self.assertEquals(2, len(self.subscribeCalled))
+        self.clock.advance(5)
+
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end'),
+                           ('unsubscribe', 'start'),
+                           ('unsubscribe', 'end'),
+                           ('subscribe', 'start'),
+                           ('subscribe', 'end')], self.calls)
+
+
+    def test_removeObserverAddAgainBeforeUnsubscribed(self):
+        """
+        Requests are sequential when re-adding observer, even if impatient.
+
+        This is similar to L{test_removeObserverAddAgain}, except for the
+        timing, here the observer is re-added before the unsubscription
+        request is finished.
+        """
+        self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
+        self.clock.advance(5)
+        self.client.removeObserver(self.observer)
+        self.clock.advance(2)
+        self.client.addObserver(self.observer)
+        self.clock.advance(3)
+        self.clock.advance(5)
+
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end'),
+                           ('unsubscribe', 'start'),
+                           ('unsubscribe', 'end'),
+                           ('subscribe', 'start'),
+                           ('subscribe', 'end')], self.calls)
 
 
     def test_itemsReceivedNotify(self):
@@ -184,6 +297,7 @@ class PubSubDispatcherTest(unittest.TestCase):
         Received items result in notifications being generated and notified.
         """
         self.client.addObserver(self.observer)
+        self.clock.advance(5)
         self.client.itemsReceived(self.event)
         self.assertEquals(1, len(self.observer.events))
 
@@ -194,9 +308,12 @@ class PubSubDispatcherTest(unittest.TestCase):
         """
         self.event.nodeIdentifier = u'unknown'
         self.client.addObserver(self.observer)
+        self.clock.advance(5)
+        self.calls = []
         self.client.itemsReceived(self.event)
         self.assertEquals(0, len(self.observer.events))
-        self.assertEquals(1, len(self.unsubscribeCalled))
+        self.assertEquals([('unsubscribe', 'start')], self.calls)
+        self.clock.advance(5)
 
 
     def test_itemsReceivedNotifyOtherResource(self):
@@ -205,9 +322,11 @@ class PubSubDispatcherTest(unittest.TestCase):
         """
         self.event.recipient = JID('user@example.org/Other')
         self.client.addObserver(self.observer)
+        self.calls = []
         self.client.itemsReceived(self.event)
         self.assertEquals(0, len(self.observer.events))
-        self.assertEquals(0, len(self.unsubscribeCalled))
+        self.assertEquals([], self.calls)
+
 
 
 

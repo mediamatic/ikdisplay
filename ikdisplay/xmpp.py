@@ -90,10 +90,125 @@ class PubSubDispatcher(PubSubClient):
     Publish-subscribe client that renders to notifications for aggregation.
     """
 
-    def __init__(self, store):
+    def __init__(self, store, reactor=None):
         self.store = store
 
         self._initialized = False
+        self.nodes = {}
+
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
+
+
+    def _checkGoal(self, _, service, nodeIdentifier):
+        """
+        Check subscription goal for this node.
+
+        This is called after a request for subscription or unsubscription is
+        done. If the current goal doesn't match the current subscription state,
+        a new attempt to reach that goal.
+        """
+        node = self.nodes[(service, nodeIdentifier)]
+
+        # Save current state
+        subscription = self.store.findOrCreate(PubSubSubscription,
+                                               service=service,
+                                               nodeIdentifier=nodeIdentifier)
+        subscription.state = node['state']
+
+        # check goal
+        if node['goal'] == 'subscribed' and node['state'] != 'subscribed':
+            self.reactor.callLater(0, self._subscribe,
+                                      service, nodeIdentifier)
+        elif node['goal'] == 'unsubscribed' and node['state'] == 'subscribed':
+            self.reactor.callLater(0, self._unsubscribe,
+                                      service, nodeIdentifier)
+        else:
+            # goal reached?
+            pass
+
+
+    def _subscribe(self, service, nodeIdentifier):
+        """
+        Subscribe to a node.
+
+        This checks if there are pending subscription or unsubscription
+        requests and sends out a subscribe request if needed.
+        """
+        def cb(result):
+            node['pending'] = False
+            node['state'] = result.state
+
+        def eb(failure):
+            node['pending'] = False
+            node['state'] = None
+            return failure
+
+        try:
+            node = self.nodes[(service, nodeIdentifier)]
+        except KeyError:
+            node = {'state': None, 'pending': False}
+            self.nodes[(service, nodeIdentifier)] = node
+
+        node['goal'] = 'subscribed'
+
+        if node['pending']:
+            # Wait until current request is done.
+            d = defer.succeed(None)
+        elif node['state'] != 'subscribed':
+            # We need to subscribe.
+            node['pending'] = True
+            d = self.subscribe(service, nodeIdentifier, self.parent.jid)
+            d.addCallbacks(cb, eb)
+            d.addErrback(log.err)
+        else:
+            # We are already subscribed. Done!
+            d = defer.succeed(None)
+        d.addCallback(self._checkGoal, service, nodeIdentifier)
+        return d
+
+
+    def _unsubscribe(self, service, nodeIdentifier):
+        """
+        Unsubscribe to a node.
+
+        This checks if there are pending subscription or unsubscription
+        requests and sends out a subscribe request if needed.
+        """
+        def cb(result):
+            node['pending'] = False
+            node['state'] = None
+
+        def eb(failure):
+            node['pending'] = False
+            failure.trap(error.StanzaError)
+            if failure.value.condition == 'unexpected-request':
+                # We were already subscribed
+                node['state'] = None
+            else:
+                return failure
+
+        try:
+            node = self.nodes[(service, nodeIdentifier)]
+        except KeyError:
+            raise Exception("Unsubscribe should not have been called.")
+
+        node['goal'] = 'unsubscribed'
+
+        if node['pending']:
+            # Wait until current request is done.
+            d = defer.succeed(None)
+        elif node['state'] == 'subscribed':
+            d = self.unsubscribe(service, nodeIdentifier, self.parent.jid)
+            d.addCallbacks(cb, eb)
+            d.addErrback(log.err)
+        else:
+            d = defer.succeed(None)
+
+        d.addCallback(self._checkGoal, service, nodeIdentifier)
+
+        return d
 
 
     def connectionInitialized(self):
@@ -107,9 +222,10 @@ class PubSubDispatcher(PubSubClient):
         self._initialized = True
 
         subscriptions = self.store.query(PubSubSubscription)
+        self.nodes = {}
         for subscription in subscriptions:
-            self.subscribe(subscription.service, subscription.nodeIdentifier,
-                           self.parent.jid)
+            self._subscribe(subscription.service,
+                            subscription.nodeIdentifier)
 
 
     def connectionLost(self, reason):
@@ -132,14 +248,9 @@ class PubSubDispatcher(PubSubClient):
                                                nodeIdentifier=nodeIdentifier)
         observer.installOnSubscription(subscription)
 
-        def setSubscriptionState(result, subscription):
-            subscription.state = result.state
-
-        if self._initialized and subscription.state is None:
-            d = self.subscribe(subscription.service,
-                               subscription.nodeIdentifier,
-                               self.parent.jid)
-            d.addCallback(setSubscriptionState, subscription)
+        if self._initialized:
+            d = self._subscribe(subscription.service,
+                                subscription.nodeIdentifier)
             d.addErrback(log.err)
 
 
@@ -156,18 +267,13 @@ class PubSubDispatcher(PubSubClient):
 
         observer.uninstallFromSubscription(subscription)
 
-        def clearSubscriptionState(result, subscription):
-            subscription.state = None
-
         powerups = subscription.powerupsFor(IPubSubEventProcessor)
         try:
             powerups.next()
         except StopIteration:
             if self._initialized:
-                d = self.unsubscribe(subscription.service,
-                                     subscription.nodeIdentifier,
-                                     self.parent.jid)
-                d.addCallback(clearSubscriptionState, subscription)
+                d = self._unsubscribe(subscription.service,
+                                      subscription.nodeIdentifier)
                 d.addErrback(log.err)
 
 
