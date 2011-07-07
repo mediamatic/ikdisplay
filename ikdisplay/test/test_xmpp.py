@@ -5,7 +5,9 @@ Tests for L{ikdisplay.xmpp}.
 from zope.interface import implements
 
 from twisted.internet import defer, task
+from twisted.python.failure import Failure
 from twisted.trial import unittest
+from twisted.words.protocols.jabber import error
 from twisted.words.protocols.jabber.jid import JID
 from twisted.words.xish import domish, utility
 
@@ -127,6 +129,7 @@ class PubSubDispatcherTest(unittest.TestCase):
 
         return call
 
+
     @_wrapCall
     def subscribe(self, service, nodeIdentifier, subscriber,
                         options=None, sender=None):
@@ -136,11 +139,57 @@ class PubSubDispatcherTest(unittest.TestCase):
         self.clock.callLater(5, d.callback, subscription)
         return d
 
+
+    @_wrapCall
+    def subscribeFail(self, service, nodeIdentifier, subscriber,
+                            options=None, sender=None):
+        failure = Failure(error.StanzaError('remote-server-not-found'))
+        d = defer.Deferred()
+        self.clock.callLater(5, d.errback, failure)
+        return d
+
+
+    @_wrapCall
+    def subscribeRetry(self, service, nodeIdentifier, subscriber,
+                             options=None, sender=None):
+        failure = Failure(error.StanzaError('remote-server-timeout'))
+        d = defer.Deferred()
+        self.clock.callLater(5, d.errback, failure)
+        return d
+
+
     @_wrapCall
     def unsubscribe(self, service, nodeIdentifier, subscriber,
                           subscriptionIdentifier=None, sender=None):
         d = defer.Deferred()
         self.clock.callLater(5, d.callback, None)
+        return d
+
+
+    @_wrapCall
+    def unsubscribeUnexpected(self, service, nodeIdentifier, subscriber,
+                              sender=None):
+        failure = Failure(error.StanzaError('unexpected-request'))
+        d = defer.Deferred()
+        self.clock.callLater(5, d.errback, failure)
+        return d
+
+
+    @_wrapCall
+    def unsubscribeFail(self, service, nodeIdentifier, subscriber,
+                              sender=None):
+        failure = Failure(error.StanzaError('remote-server-not-found'))
+        d = defer.Deferred()
+        self.clock.callLater(5, d.errback, failure)
+        return d
+
+
+    @_wrapCall
+    def unsubscribeRetry(self, service, nodeIdentifier, subscriber,
+                               sender=None):
+        failure = Failure(error.StanzaError('remote-server-timeout'))
+        d = defer.Deferred()
+        self.clock.callLater(5, d.errback, failure)
         return d
 
 
@@ -213,6 +262,41 @@ class PubSubDispatcherTest(unittest.TestCase):
                            ('subscribe', 'end')], self.calls)
 
 
+    def test_addObserverSubscribeFail(self):
+        """
+        Failing to subscribe when adding an observer will not retry.
+        """
+        self.client.subscribe = self.subscribeFail
+        self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
+
+        self.clock.advance(5)
+        self.assertEquals([('subscribeFail', 'start'),
+                           ('subscribeFail', 'end')], self.calls)
+        self.assertEquals(1, len(self.flushLoggedErrors(error.StanzaError)))
+
+
+    def test_addObserverSubscribeRetry(self):
+        """
+        Failing to subscribe with temporary error will retry.
+        """
+        self.client.subscribe = self.subscribeRetry
+        self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
+
+        self.clock.advance(5)
+        self.assertEquals([('subscribeRetry', 'start'),
+                           ('subscribeRetry', 'end')], self.calls)
+        self.assertEquals(1, len(self.flushLoggedErrors(error.StanzaError)))
+
+        self.client.subscribe = self.subscribe
+        self.clock.advance(0.5)
+        self.assertEquals([('subscribeRetry', 'start'),
+                           ('subscribeRetry', 'end'),
+                           ('subscribe', 'start')], self.calls)
+        self.clock.advance(5)
+
+
     def test_removeObserver(self):
         """
         Removing the last observer subscribes from the node.
@@ -239,6 +323,7 @@ class PubSubDispatcherTest(unittest.TestCase):
         self.client.removeObserver(self.observer)
         self.clock.advance(3)
         self.clock.advance(2)
+        self.clock.advance(0.25)
         self.clock.advance(5)
 
         self.assertEquals([('subscribe', 'start'),
@@ -282,6 +367,7 @@ class PubSubDispatcherTest(unittest.TestCase):
         self.clock.advance(2)
         self.client.addObserver(self.observer)
         self.clock.advance(3)
+        self.clock.advance(0.25)
         self.clock.advance(5)
 
         self.assertEquals([('subscribe', 'start'),
@@ -290,6 +376,102 @@ class PubSubDispatcherTest(unittest.TestCase):
                            ('unsubscribe', 'end'),
                            ('subscribe', 'start'),
                            ('subscribe', 'end')], self.calls)
+
+
+    def test_removeObserverAddAgainBeforeSubscribed(self):
+        """
+        Requests are sequential when re-adding observer, even if impatient.
+
+        This is similar to L{test_removeObserverAddAgain}, except for the
+        timing, here the observer is re-added before the (first) subscription
+        request is finished.
+        """
+        self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
+        self.clock.advance(2)
+        self.client.removeObserver(self.observer)
+        self.clock.advance(2)
+        self.client.addObserver(self.observer)
+        self.clock.advance(3)
+
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end')], self.calls)
+
+
+    def test_removeObserverUnsubscribeUnexpected(self):
+        """
+        Removing the observer with the unsubscribe unexpected is success.
+        """
+        self.client.unsubscribe = self.unsubscribeUnexpected
+        self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
+        self.clock.advance(5)
+        self.client.removeObserver(self.observer)
+        self.clock.advance(5)
+
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end'),
+                           ('unsubscribeUnexpected', 'start'),
+                           ('unsubscribeUnexpected', 'end')], self.calls)
+
+
+    def test_removeObserverUnsubscribeFail(self):
+        """
+        Removing the observer then failing to unsubscribes does not retry.
+        """
+        self.client.unsubscribe = self.unsubscribeFail
+        self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
+        self.clock.advance(5)
+        self.client.removeObserver(self.observer)
+        self.clock.advance(5)
+
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end'),
+                           ('unsubscribeFail', 'start'),
+                           ('unsubscribeFail', 'end')], self.calls)
+        self.assertEquals(1, len(self.flushLoggedErrors(error.StanzaError)))
+
+
+    def test_removeObserverUnsubscribeRetry(self):
+        """
+        Temporary unsubscribe failures are retried.
+        """
+        self.client.unsubscribe = self.unsubscribeRetry
+        self.client.connectionInitialized()
+        self.client.addObserver(self.observer)
+        self.clock.advance(5)
+        self.client.removeObserver(self.observer)
+        self.clock.advance(5)
+
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end'),
+                           ('unsubscribeRetry', 'start'),
+                           ('unsubscribeRetry', 'end')], self.calls)
+        self.assertEquals(1, len(self.flushLoggedErrors(error.StanzaError)))
+
+        self.client.unsubscribe = self.unsubscribe
+        self.clock.advance(0.5)
+        self.assertEquals([('subscribe', 'start'),
+                           ('subscribe', 'end'),
+                           ('unsubscribeRetry', 'start'),
+                           ('unsubscribeRetry', 'end'),
+                           ('unsubscribe', 'start')], self.calls)
+        self.clock.advance(5)
+
+
+    def test_removeObserverSubscribeFail(self):
+        """
+        Failing to subscribe then removing does not cause unsubscribe request.
+        """
+        self.client.subscribe = self.subscribeFail
+        self.client.connectionInitialized()
+
+        self.client.addObserver(self.observer)
+        self.clock.advance(5)
+        self.client.removeObserver(self.observer)
+
+        self.assertEquals(1, len(self.flushLoggedErrors(error.StanzaError)))
 
 
     def test_itemsReceivedNotify(self):

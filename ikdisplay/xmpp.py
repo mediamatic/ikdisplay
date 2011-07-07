@@ -1,7 +1,7 @@
 # -*- test-case-name: ikdisplay.test.test_xmpp -*-
 
 from zope.interface import Attribute, Interface
-from twisted.internet import reactor, task
+from twisted.internet import defer, task
 from twisted.python import log
 from twisted.words.protocols.jabber import error
 from twisted.words.protocols.jabber.jid import internJID as JID
@@ -88,28 +88,60 @@ class IPubSubEventProcessor(Interface):
 class PubSubDispatcher(PubSubClient):
     """
     Publish-subscribe client that renders to notifications for aggregation.
+
+    @ivar delay: Current delay for the next request, for backing off temporary failures.
+    @type delay: C{float}
+    @ivar delayInitial: Initial delay for subsequent requests.
+    @type delayInitial: C{float}
+    @ivar delayMax: Maximum delay between requests when backing off.
+    @type delayMax: C{float}
+    @ivar delayFactor: Multiplication factor after each repeated temporary
+        failure.
+    @type delayFactor: C{float}
     """
+
+    delayInitial = 0.25
+    delay = delayInitial
+    delayMax = 16
+    delayFactor = 2
 
     def __init__(self, store, reactor=None):
         self.store = store
 
         self._initialized = False
-        self.nodes = {}
+        self._nodes = {}
 
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
 
 
-    def _checkGoal(self, _, service, nodeIdentifier):
+    def _checkGoal(self, success, service, nodeIdentifier):
         """
         Check subscription goal for this node.
 
         This is called after a request for subscription or unsubscription is
         done. If the current goal doesn't match the current subscription state,
         a new attempt to reach that goal.
+
+        Temporary failures induce a backoff algorithm using L{delayInitial},
+        L{delayMax} and L{delayFactor}.
+
+        @param success: Signals success of the last (un)subscription request.
+        C{True} means success, C{False} means permanent failure, C{None} means
+        temporary failure.
         """
-        node = self.nodes[(service, nodeIdentifier)]
+        if success is None:
+            # Retry after a delay
+            self.delay = min(self.delay * self.delayFactor, self.delayMax)
+        elif not success:
+            # The last attempt to reach a goal has failed. Stop.
+            return
+        else:
+            # The last request succeeded, reset the delay for new requests.
+            self.delay = self.delayInitial
+
+        node = self._nodes[(service, nodeIdentifier)]
 
         # Save current state
         subscription = self.store.findOrCreate(PubSubSubscription,
@@ -119,11 +151,15 @@ class PubSubDispatcher(PubSubClient):
 
         # check goal
         if node['goal'] == 'subscribed' and node['state'] != 'subscribed':
-            self.reactor.callLater(0, self._subscribe,
-                                      service, nodeIdentifier)
+            log.msg("Subscribing to %r on %r in %s seconds." %
+                        (nodeIdentifier, service, self.delay))
+            self.reactor.callLater(self.delay, self._subscribe,
+                                               service, nodeIdentifier)
         elif node['goal'] == 'unsubscribed' and node['state'] == 'subscribed':
-            self.reactor.callLater(0, self._unsubscribe,
-                                      service, nodeIdentifier)
+            log.msg("Unsubscribing from %r on %r in %s seconds." %
+                        (nodeIdentifier, service, self.delay))
+            self.reactor.callLater(self.delay, self._unsubscribe,
+                                               service, nodeIdentifier)
         else:
             # goal reached?
             pass
@@ -139,33 +175,45 @@ class PubSubDispatcher(PubSubClient):
         def cb(result):
             node['pending'] = False
             node['state'] = result.state
+            return True
 
         def eb(failure):
             node['pending'] = False
             node['state'] = None
-            return failure
+
+            failure.trap(error.StanzaError)
+            log.err(failure)
+
+            if failure.value.type == 'wait':
+                # Back-off before sending a new request.
+                return None
+            else:
+                # The attempt to reach our goal stops here.
+                log.msg("Abandoning attempt to subscribe to %r on %r" %
+                            (nodeIdentifier, service))
+                return False
 
         try:
-            node = self.nodes[(service, nodeIdentifier)]
+            node = self._nodes[(service, nodeIdentifier)]
         except KeyError:
             node = {'state': None, 'pending': False}
-            self.nodes[(service, nodeIdentifier)] = node
+            self._nodes[(service, nodeIdentifier)] = node
 
         node['goal'] = 'subscribed'
 
         if node['pending']:
             # Wait until current request is done.
-            d = defer.succeed(None)
+            d = defer.succeed(False)
         elif node['state'] != 'subscribed':
             # We need to subscribe.
             node['pending'] = True
             d = self.subscribe(service, nodeIdentifier, self.parent.jid)
             d.addCallbacks(cb, eb)
-            d.addErrback(log.err)
         else:
             # We are already subscribed. Done!
-            d = defer.succeed(None)
+            d = defer.succeed(True)
         d.addCallback(self._checkGoal, service, nodeIdentifier)
+        d.addErrback(log.err)
         return d
 
 
@@ -179,6 +227,7 @@ class PubSubDispatcher(PubSubClient):
         def cb(result):
             node['pending'] = False
             node['state'] = None
+            return True
 
         def eb(failure):
             node['pending'] = False
@@ -186,11 +235,21 @@ class PubSubDispatcher(PubSubClient):
             if failure.value.condition == 'unexpected-request':
                 # We were already subscribed
                 node['state'] = None
+                return True
+
+            log.err(failure)
+
+            if failure.value.type == 'wait':
+                # Back-off before sending a new request.
+                return None
             else:
-                return failure
+                # The attempt to reach our goal stops here.
+                log.msg("Abandoning attempt to unsubscribe from %r on %r" %
+                            (nodeIdentifier, service))
+                return False
 
         try:
-            node = self.nodes[(service, nodeIdentifier)]
+            node = self._nodes[(service, nodeIdentifier)]
         except KeyError:
             raise Exception("Unsubscribe should not have been called.")
 
@@ -198,15 +257,16 @@ class PubSubDispatcher(PubSubClient):
 
         if node['pending']:
             # Wait until current request is done.
-            d = defer.succeed(None)
+            d = defer.succeed(False)
         elif node['state'] == 'subscribed':
             d = self.unsubscribe(service, nodeIdentifier, self.parent.jid)
             d.addCallbacks(cb, eb)
-            d.addErrback(log.err)
         else:
-            d = defer.succeed(None)
+            # We are already unsubscribed. Done!
+            d = defer.succeed(True)
 
         d.addCallback(self._checkGoal, service, nodeIdentifier)
+        d.addErrback(log.err)
 
         return d
 
@@ -222,7 +282,7 @@ class PubSubDispatcher(PubSubClient):
         self._initialized = True
 
         subscriptions = self.store.query(PubSubSubscription)
-        self.nodes = {}
+        self._nodes = {}
         for subscription in subscriptions:
             self._subscribe(subscription.service,
                             subscription.nodeIdentifier)
@@ -422,6 +482,8 @@ class Pinger(PingClientProtocol):
 
 
     def doPing(self):
+        from twisted.internet import reactor
+
         if self.verbose:
             log.msg("*** PING ***")
 
