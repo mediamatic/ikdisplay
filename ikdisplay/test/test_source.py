@@ -184,7 +184,10 @@ class VoteSourceTest(unittest.TestCase, PubSubSourceTests):
 
 
 
-    def test_formatPayload(self):
+    def test_formatPayloadUnknown(self):
+        """
+        Unknown tags will report as Illegal Alien.
+        """
         xml = """
 <rsp>
   <vote>
@@ -226,6 +229,8 @@ class VoteSourceTest(unittest.TestCase, PubSubSourceTests):
                           notification['title'])
         self.assertEquals(u'voted for Shadow Search Platform',
                           notification['subtitle'])
+
+
 
 class PresenceSourceTest(unittest.TestCase, PubSubSourceTests):
     """

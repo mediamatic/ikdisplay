@@ -5,7 +5,7 @@ import simplejson as json
 
 from twisted.web import resource, static, http
 from twisted.internet import defer
-from twisted.python import failure, log
+from twisted.python import log
 from axiom import store, item, attributes
 from twisted.web.server import NOT_DONE_YET
 from twisted.words.protocols.jabber.jid import internJID as JID

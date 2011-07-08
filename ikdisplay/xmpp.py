@@ -89,6 +89,10 @@ class PubSubDispatcher(PubSubClient):
     """
     Publish-subscribe client that renders to notifications for aggregation.
 
+    @ivar store: Axiom store where subscription administration is persistently
+        stored.
+    @ivar reactor: Reactor for delayed calls.
+    @type reactor: Object providing L{twisted.internet.interfaces.IReactorTime}
     @ivar delay: Current delay for the next request, for backing off temporary failures.
     @type delay: C{float}
     @ivar delayInitial: Initial delay for subsequent requests.

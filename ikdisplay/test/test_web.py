@@ -3,8 +3,8 @@ Tests for L{ikdisplay.web}.
 """
 from twisted.trial import unittest
 
-from axiom import attributes, item, store
-from ikdisplay import source, web, xmpp
+from axiom import store
+from ikdisplay import source, web
 
 class APIResourceTest(unittest.TestCase):
     """
