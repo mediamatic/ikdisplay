@@ -1,0 +1,39 @@
+ikDisplay
+
+What is this?
+=============
+
+ikDisplay is an aggregator of real-time event notifications for waterfall
+type displays. Event sources are configured to belong to feeds and incoming
+notifications are reformatted to a common representation before republishing
+to a feeds' associated XMPP publish-subscribe node. It supports various event
+sources, of which many are currently tied to Mediamatic's anyMeta-based
+social networking sites:
+
+ * Subscriptions to XMPP Publish-Subscribe nodes:
+   * Activity Streams events as individual Atom entries.
+   * Notifications from Mediamatic's RFID-enabled interactive installations,
+     including ikCam, ikPoll and the Physical "I like it" Button.
+ * Real-time notifications through the Twitter Streaming API, by tracking
+   keywords and/or accounts.
+
+
+Requirements
+============
+
+ - Python 2.4 or later.
+ - Twisted 10.0.0 or later.
+ - Wokkel 0.6.3 or later.
+ - anyMeta API 0.9 or later
+ - Divmod Axiom 0.6.0 or later.
+ - twittytwister 0.1.
+
+
+Copyright and Warranty
+======================
+
+The code in this distribution is Copyright (c) Mediamatic Lab, unless
+explicitly specified otherwise.
+
+ikDisplay is made available under the MIT License. The included LICENSE file
+describes this in detail.
