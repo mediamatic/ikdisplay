@@ -151,29 +151,53 @@ class TwitterMonitor(service.Service):
         return True
 
 
-    def onEntry(self, entry):
-        entry.image_url = None
+    def augmentStatusWithImage(self, entry):
+        """
+        Discover images linked from the entry and include the image's URL.
 
-        fulltweet = entry.raw
-        if 'entities' not in fulltweet or 'urls' not in fulltweet['entities'] or not fulltweet['entities']['urls']:
-            # No urls in tweet.
-            self.consumer.onEntry(entry)
-            return
+        This tries to detect images from URLs embedded in the entry and includes
+        the first one in the entry's C{image_url} attribute.
 
-        ds = []
-        for urlentry in fulltweet['entities']['urls']:
-            ds.append(extractImage(urlentry["url"]))
-        d = defer.DeferredList(ds)
+        @type entry: L{streaming.Status}
+
+        @rtype: L{defer.Deferred}
+        """
+
         def getFirstImage(r):
-            image = None
             for success, result in r:
                 if success and result:
-                    image = result
+                    entry.image_url = result
                     break
-            entry.image_url = image
             return entry
-        d.addCallback(getFirstImage)
-        d.addCallback(lambda e: self.consumer.onEntry(e))
+
+        entry.image_url = None
+
+        if hasattr(entry.entities, 'media') and entry.entities.media:
+            entry.image_url = entry.entities.media[0].media_url
+            return entry
+        elif hasattr(entry.entities, 'urls') and entry.entities.urls:
+            ds = []
+            for urlentry in entry.entities.urls:
+                url = getattr(urlentry, 'expanded_url', urlentry.url)
+                if url:
+                    if (not url.startswith('http://') and
+                        not url.startswith('https://')):
+                        url = 'http://' + url
+                    ds.append(extractImage(url.encode('utf-8')))
+            d = defer.DeferredList(ds)
+            d.addCallback(getFirstImage)
+            return d
+        else:
+            # No urls in tweet.
+            return entry
+
+
+    def onEntry(self, entry):
+        d = defer.succeed(entry)
+        d.addCallback(self.augmentStatusWithImage)
+        d.addCallback(self.consumer.onEntry)
+        d.addErrback(log.err)
+        return d
 
 
     def setFilters(self, terms, userIDs):
