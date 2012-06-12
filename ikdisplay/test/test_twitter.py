@@ -27,7 +27,9 @@ class TestExtractImage(unittest.TestCase):
 
 
     def testFlickr(self):
-        return self._testExtractImage("http://www.flickr.com/photos/bees/2341623661/", "http://farm4.static.flickr.com/3123/2341623661_7c99f48bbf.jpg")
+        return self._testExtractImage(
+            "http://www.flickr.com/photos/bees/2341623661/",
+            "http://farm4.staticflickr.com/3123/2341623661_7c99f48bbf_b.jpg")
 
 
     def testYFrog(self):
