@@ -1,8 +1,7 @@
 <html>
     <head>
         <title>ikDisplay</title>
-        <link href="static/zp-compressed.css" type="text/css" media="screen, print" rel="stylesheet" />
-        <link href="static/livestream_beamer_all.css" type="text/css" media="screen, print" rel="stylesheet" />
+        <link href="static/livestream.css" type="text/css" media="screen, print" rel="stylesheet" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="format-detection" content="telephone=no" />
@@ -21,6 +20,22 @@
             if ($.query.get('node')) {
                 backChannel.options.nodeIdentifier = $.query.get('node');
             };
+            if (/^\w+$/.test($.query.get('style'))) {
+                document.write('<link href="static/livestream_' +
+                               $.query.get('style') + '.css" ' +
+                               'type="text/css" media="screen, print" ' +
+                               'rel="stylesheet" />');
+            };
+
+            $(document).ready(function () {
+                var conn = new Strophe.Connection(backChannel.options.service);
+
+                backChannel.connection = conn;
+                backChannel.connection.rawInput = backChannel.raw_input;
+                backChannel.connection.rawOutput = backChannel.raw_output;
+
+                backChannel.connect();
+            });
         </script>
     </head>
     <body>

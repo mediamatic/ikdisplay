@@ -6,7 +6,7 @@ backChannel =
     show_raw: 0,
 
     options: {
-        service: 'http://www.mediamatic.nl/http-bind/',
+        service: 'http://www.mediamatic.nl/http-bind',
         jid: 'bosh.mediamatic.nl',
         password: '',
         pubsubService: 'feeds.mediamatic.nl',
@@ -16,7 +16,7 @@ backChannel =
         reconnectInterval: 3000,
         resetHeight: true // For style 'beamer' this should be false.
     },
-    
+
     addMessage: function(message, callback)
     {
         var clone = function()
@@ -33,17 +33,17 @@ backChannel =
             clone();
         }
     },
-    
+
     cloneMessage: function(message, callback)
     {
         var clonedItem = $('.clone-item').clone().show().css({opacity: 0}).appendTo($('.tmp')).removeClass('clone-item');
         backChannel.fillClone(clonedItem, message);
-        clonedItemHeight = $('.list-ikdisplay-backchannel-wrap', clonedItem).height();
-        clonedItem  
+        var clonedItemHeight = $('.list-ikdisplay-backchannel-wrap', clonedItem).height();
+        clonedItem
                 .removeClass('clone-item')
                 .addClass('item')
                 .css({opacity: 0, height: 0})
-                .animate({height: clonedItemHeight}, 600, function() 
+                .animate({height: clonedItemHeight}, 600, function()
                 {
                     $(this).animate({opacity: 1}, 300, function() {
                         if (backChannel.options.resetHeight) {
@@ -54,7 +54,7 @@ backChannel =
                 })
                 .prependTo($(backChannel.options.itemList));
     },
-    
+
     fillClone: function(clone, message)
     {
         $('.list-ikdisplay-backchannel-title', clone).text(message.title);
@@ -127,7 +127,7 @@ backChannel =
             var self = this;
             backChannel.addMessage(backChannel.parseNotification(item), function () {
                 $(self).dequeue();
-                })
+                });
             });
     },
 
@@ -175,12 +175,12 @@ backChannel =
         // Retrieve last items.
         var pub = $iq({from: backChannel.connection.jid,
                        to: backChannel.options.pubsubService,
-                       type: 'get'})
+                       type: 'get'});
 
         pub.c('pubsub', { xmlns:Strophe.NS.PUBSUB })
             .c('items', {
                 node: backChannel.options.nodeIdentifier,
-                max_items: backChannel.options.itemAmount, 
+                max_items: backChannel.options.itemAmount
             });
 
         backChannel.connection.sendIQ(pub.tree(), backChannel.on_items, null);
@@ -207,14 +207,4 @@ backChannel =
             backChannel.notify(this);
         });
     }
-}
-
-$(document).ready(function () {
-    var conn = new Strophe.Connection(backChannel.options.service);
-
-    backChannel.connection = conn;
-    backChannel.connection.rawInput = backChannel.raw_input;
-    backChannel.connection.rawOutput = backChannel.raw_output;
-
-    backChannel.connect();
-});
+};
