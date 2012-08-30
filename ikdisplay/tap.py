@@ -2,6 +2,8 @@
 ikDisplay Aggregator service.
 """
 
+from oauth.oauth import OAuthConsumer, OAuthToken
+
 from twisted.application import service, strports
 from twisted.python import usage
 from twisted.web import resource, server, static
@@ -10,6 +12,8 @@ from twisted.words.protocols.jabber import jid
 from axiom.store import Store
 
 from anymeta import manhole
+
+from twittytwister.twitter import TwitterFeed, TwitterMonitor
 
 from ikdisplay import aggregator, twitter, xmpp
 from ikdisplay.web import Index, APIResource
@@ -38,6 +42,14 @@ class Options(usage.Options):
                 'Twitter account'),
             ('twitter-password', None, None,
                 'Twitter password'),
+            ('twitter-oauth-consumer-key', None, None,
+                'Twitter OAuth consumer key'),
+            ('twitter-oauth-consumer-secret', None, None,
+                'Twitter OAuth consumer secret'),
+            ('twitter-oauth-token-key', None, None,
+                'Twitter OAuth token key'),
+            ('twitter-oauth-token-secret', None, None,
+                'Twitter OAuth token secret'),
 
             ('web-port', None, 'tcp:8080',
                 'Web service port'),
@@ -70,8 +82,18 @@ class Options(usage.Options):
             except jid.invalidFormat:
                 raise usage.UsageError("Invalid publish-subscribe service JID")
 
-        if not self['twitter-user'] or not self['twitter-password']:
-            raise usage.UsageError("Missing twitter credentials")
+        try:
+            self['twitter-oauth-consumer'] = OAuthConsumer(
+                key=self['twitter-oauth-consumer-key'],
+                secret=self['twitter-oauth-consumer-secret'])
+            self['twitter-oauth-token'] = OAuthToken(
+                key=self['twitter-oauth-token-key'],
+                secret=self['twitter-oauth-token-secret'])
+        except KeyError:
+            self['twitter-oauth-consumer'] = None
+            self['twitter-oauth-token'] = None
+            if not self['twitter-user'] or not self['twitter-password']:
+                raise usage.UsageError("Missing twitter credentials")
 
 
 
@@ -102,13 +124,16 @@ def makeService(config):
     #
     # The Twitter
     #
-    tm = twitter.TwitterMonitor(config['twitter-user'],
-                                config['twitter-password'])
+    twitterFeed = TwitterFeed(user=config.get('twitter-user'),
+                             passwd=config.get('twitter-password'),
+                             consumer=config.get('twitter-oauth-consumer'),
+                             token=config.get('twitter-oauth-token'))
+    twitterFeed.protocol = twitter.VerboseTwitterStream
+    tm = TwitterMonitor(api=twitterFeed.filter, delegate=None, args=None)
     tm.setName('twitter')
-    td = twitter.TwitterDispatcher(store, tm)
-    tm.consumer = td
     tm.setServiceParent(store)
 
+    td = twitter.TwitterDispatcher(store, tm)
 
     #
     # The Aggregator

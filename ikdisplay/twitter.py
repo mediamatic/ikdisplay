@@ -1,16 +1,14 @@
 import re
 import simplejson as json
 
-from twisted.application import service
-from twisted.internet import defer, error, reactor
+from twisted.internet import defer, reactor
 from twisted.python import log
 from twisted.web import client
-from twisted.web import error as http_error
 from twisted.words.xish import domish
 
 from wokkel import pubsub
 
-from twittytwister import streaming, twitter
+from twittytwister import streaming
 
 NS_TWITTER = 'http://mediamatic.nl/ns/ikdisplay/2009/twitter'
 
@@ -26,196 +24,6 @@ class VerboseTwitterStream(streaming.TwitterStream):
 
     def keepAliveReceived(self):
         log.msg("Twitter keep-alive")
-
-
-
-class TwitterMonitor(service.Service):
-    """
-    Reconnecting Twitter monitor service.
-
-    @ivar terms: Terms to track as an iterable of C{unicode}.
-    @ivar userIDs: IDs of users to follow as an iterable of C{unicode}.
-    """
-
-    initialDelay = 5
-    delay = 5
-    maxDelay = 5
-    continueTrying = True
-    errorState = None
-    consumer = None
-    protocol = None
-
-    terms = None
-    userIDs = None
-
-    def __init__(self, username, password, consumer=None):
-        self.controller = twitter.TwitterFeed(username, password)
-        self.controller.protocol = VerboseTwitterStream
-        self.consumer = consumer
-
-
-    def startService(self):
-        service.Service.startService(self)
-        self.continueTrying = True
-        self.doConnect()
-
-
-    def stopService(self):
-        service.Service.stopService(self)
-        self.continueTrying = False
-
-        if self.protocol:
-            self.protocol.transport.stopProducing()
-
-
-    def doConnect(self):
-
-        def forgetProtocol(result):
-            self.protocol = None
-            return result
-
-        def connectionClosed(_):
-            log.msg("Connection closed cleanly.")
-            self.errorState = None
-            self.delay = self.initialDelay
-
-        def cb(protocol):
-            self.protocol = protocol
-            protocol.deferred.addBoth(forgetProtocol)
-            protocol.deferred.addCallback(connectionClosed)
-            return protocol.deferred
-
-        def trapConnectError(failure):
-            failure.trap(error.ConnectError,
-                         error.TimeoutError,
-                         error.ConnectionClosed)
-            log.err(failure)
-            if self.errorState != 'connect':
-                self.errorState = 'connect'
-                self.delay = 0.25
-                self.maxDelay = 16
-            else:
-                self.delay = min(self.maxDelay, self.delay * 2)
-
-
-        def trapHTTPError(failure):
-            failure.trap(http_error.Error)
-            log.err(failure, "HTTP error")
-
-            if self.errorState != 'http':
-                self.errorState = 'http'
-                self.delay = 10
-                self.maxDelay = 240
-            else:
-                self.delay = min(self.maxDelay, self.delay * 2)
-
-        def trapOtherErrors(failure):
-            log.err(failure)
-            self.errorState = 'other'
-            self.continueTrying = False
-
-        def retry(_):
-            if self.continueTrying:
-                if self.delay == 0:
-                    when = "now"
-                else:
-                    when = "in %0.2f seconds" % (self.delay,)
-                log.msg("Reconnecting %s." % (when,))
-                reactor.callLater(self.delay, self.doConnect)
-            else:
-                log.msg("Abandoning reconnect.")
-
-        if not self.terms and not self.userIDs:
-            log.msg("No Twitter terms or users to filter on. Not connecting.")
-            return False
-
-        self.continueTrying = True
-
-        args = {}
-        if self.terms:
-            args['track'] = ','.join(self.terms)
-        if self.userIDs:
-            args['follow'] = ','.join(self.userIDs)
-
-        if self.consumer is None:
-            log.msg("No Twitter consumer set. Not connecting.")
-            return False
-
-        d = self.controller.filter(self.onEntry, args)
-        d.addCallback(cb)
-        d.addErrback(trapConnectError)
-        d.addErrback(trapHTTPError)
-        d.addErrback(trapOtherErrors)
-        d.addCallback(retry)
-
-        return True
-
-
-    def augmentStatusWithImage(self, entry):
-        """
-        Discover images linked from the entry and include the image's URL.
-
-        This tries to detect images from URLs embedded in the entry and includes
-        the first one in the entry's C{image_url} attribute.
-
-        @type entry: L{streaming.Status}
-
-        @rtype: L{defer.Deferred}
-        """
-
-        def getFirstImage(r):
-            for success, result in r:
-                if success and result:
-                    entry.image_url = result
-                    break
-            return entry
-
-        entry.image_url = None
-
-        if hasattr(entry.entities, 'media') and entry.entities.media:
-            entry.image_url = entry.entities.media[0].media_url
-            return entry
-        elif hasattr(entry.entities, 'urls') and entry.entities.urls:
-            ds = []
-            for urlentry in entry.entities.urls:
-                url = getattr(urlentry, 'expanded_url', urlentry.url)
-                if url:
-                    if (not url.startswith('http://') and
-                        not url.startswith('https://')):
-                        url = 'http://' + url
-                    ds.append(extractImage(url.encode('utf-8')))
-            d = defer.DeferredList(ds)
-            d.addCallback(getFirstImage)
-            return d
-        else:
-            # No urls in tweet.
-            return entry
-
-
-    def onEntry(self, entry):
-        d = defer.succeed(entry)
-        d.addCallback(self.augmentStatusWithImage)
-        d.addCallback(self.consumer.onEntry)
-        d.addErrback(log.err)
-        return d
-
-
-    def setFilters(self, terms, userIDs):
-        """
-        Set the terms to track and users to follow and (re)connect.
-
-        @param terms: Terms to track as an iterable of C{unicode}.
-        @param userIDs: IDs of users to follow as an iterable of C{unicode}.
-        """
-        self.terms = terms
-        self.userIDs = userIDs
-
-        if self.protocol:
-            # If connected, lose connection to automatically reconnect.
-            self.protocol.transport.stopProducing()
-        elif self.running and self.controller:
-            # Start connecting.
-            self.doConnect()
 
 
 
@@ -309,7 +117,10 @@ class TwitterDispatcher(object):
     def __init__(self, store, monitor):
         self.store = store
         self.monitor = monitor
-        self.refreshFilters()
+        self.monitor.delegate = self.onEntry
+        self.terms = set()
+        self.userIDs = set()
+        self.setFilters()
 
 
     def _getEnabledSources(self):
@@ -328,8 +139,20 @@ class TwitterDispatcher(object):
         return terms, userIDs
 
 
+    def setFilters(self):
+        terms, userIDs = self.collectFilters()
+        if terms != self.terms or userIDs != self.userIDs:
+            self.terms = terms
+            self.userIDs = userIDs
+            self.monitor.args = {
+                'track': ','.join(self.terms),
+                'follow': ','.join(self.userIDs),
+                }
+
+
     def refreshFilters(self):
-        self.monitor.setFilters(*self.collectFilters())
+        self.setFilters()
+        self.monitor.connect(forceReconnect=True)
 
 
     def onEntry(self, entry):
