@@ -359,6 +359,8 @@ def extractImage(url):
         ('http://post\.ly/.+', _extractEmbedly),
         ('http://img\.ly/.+', _extractEmbedly),
         ('http://plixi\.com/.+', _extractEmbedly),
+        ('http://instagr.am/p/.+', _extractEmbedly),
+        ('https?://path.com/p/.+', _extractEmbedly),
         ]
     for regex, cb in extracters:
         if re.match(regex, url):
