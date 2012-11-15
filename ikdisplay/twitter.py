@@ -156,8 +156,55 @@ class TwitterDispatcher(object):
 
 
     def onEntry(self, entry):
-        for source in self._getEnabledSources():
-            source.onEntry(entry)
+        def deliver(entry):
+            for source in self._getEnabledSources():
+                source.onEntry(entry)
+
+        d = augmentStatusWithImage(entry)
+        d.addCallback(deliver)
+        d.addErrback(log.err)
+
+
+
+def augmentStatusWithImage(entry):
+    """
+    Discover images linked from the entry and include the image's URL.
+
+    This tries to detect images from URLs embedded in the entry and includes
+    the first one in the entry's C{image_url} attribute.
+
+    @type entry: L{streaming.Status}
+
+    @rtype: L{defer.Deferred}
+    """
+
+    def getFirstImage(r):
+        for success, result in r:
+            if success and result:
+                entry.image_url = result
+                break
+        return entry
+
+    entry.image_url = None
+
+    if hasattr(entry.entities, 'media') and entry.entities.media:
+        entry.image_url = entry.entities.media[0].media_url
+        return defer.succeed(entry)
+    elif hasattr(entry.entities, 'urls') and entry.entities.urls:
+        ds = []
+        for urlentry in entry.entities.urls:
+            url = getattr(urlentry, 'expanded_url', urlentry.url)
+            if url:
+                if (not url.startswith('http://') and
+                    not url.startswith('https://')):
+                    url = 'http://' + url
+                ds.append(extractImage(url.encode('utf-8')))
+        d = defer.DeferredList(ds)
+        d.addCallback(getFirstImage)
+        return d
+    else:
+        # No urls in tweet.
+        return defer.succeed(entry)
 
 
 
@@ -167,12 +214,10 @@ def extractImage(url):
         ('http://twitpic\.com/.+', _extractTwitpic),
         ('http://moby\.to/.+', _extractMobyPicture),
         ('http://www\.mobypicture\.com/user/[^/]+/view/.+', _extractMobyPicture),
-        ('http://yfrog\.com/.+', _extractYFrog),
         ('http://www\.flickr\.com/photos/.+', _extractFlickr),
 
         # literal links
         ('http://i\d+\.tinypic\.com/.+\.(png|jpg)$', _extractLiteral),
-
 
         # using embed.ly oembed proxy:
         ('http://tweetphoto\.com/.+', _extractEmbedly),
@@ -184,6 +229,7 @@ def extractImage(url):
         ('http://plixi\.com/.+', _extractEmbedly),
         ('http://instagr.am/p/.+', _extractEmbedly),
         ('https?://path.com/p/.+', _extractEmbedly),
+        ('http://yfrog\.com/.+', _extractEmbedly),
         ]
     for regex, cb in extracters:
         if re.match(regex, url):
@@ -198,10 +244,6 @@ def _extractLiteral(url):
 def _extractTwitpic(url):
     id = url.split("/")[-1]
     return defer.succeed("http://twitpic.com/show/large/" + id)
-
-
-def _extractYFrog(url):
-    return _oEmbed("http://www.yfrog.com/api/oembed?url="+url)
 
 
 def _extractMobyPicture(url):
@@ -220,8 +262,9 @@ def _oEmbed(url):
     d = client.getPage(url)
     def parse(page):
         result = json.loads(page)
-        if result['type'] not in ('photo', 'image'): # 'image' is not according to spec, but yfrog returns it
+        if result.get('type') != 'photo':
+            # Ignore non-photos
             return None
-        return result['url']
+        return result.get('url')
     d.addCallback(parse)
     return d

@@ -9,6 +9,159 @@ from twittytwister.streaming import Status, Entities, Media, URL
 
 from ikdisplay import twitter
 
+class AugmentStatusWithImageTest(unittest.TestCase):
+    """
+    Tests for L{twitter.TwitterMonitor}.
+    """
+
+    def test_augmentStatusWithImageMediaEntities(self):
+        def cb(entry):
+            self.assertEqual(media.media_url, entry.image_url)
+
+        media = Media()
+        media.media_url = 'http://p.twimg.com/AQ9JtQsCEAA7dEN.jpg'
+        status = Status()
+        status.entities = Entities()
+        status.entities.media = [media]
+
+        d = twitter.augmentStatusWithImage(status)
+        d.addCallback(cb)
+        return d
+
+
+    def test_augmentStatusWithImageURLEntities(self):
+        """
+        If there is no media entity, try expanded extracted URLs.
+
+        This overrides L{twitter.extractImage} so that it always returns
+        the given URL, as if it was successfully extracted.
+        """
+        def cb(entry):
+            self.assertEqual(url.expanded_url, entry.image_url)
+
+        url = URL()
+        url.url = 'http://t.co/qbJx26r'
+        url.expanded_url = 'http://twitter.com/twitter/status/76360760606986241/photo/1'
+        status = Status()
+        status.entities = Entities()
+        status.entities.urls = [url]
+
+        self.patch(twitter, 'extractImage', defer.succeed)
+
+        d = twitter.augmentStatusWithImage(status)
+        d.addCallback(cb)
+        return d
+
+
+    def test_augmentStatusWithImageURLEntitiesNoImage(self):
+        """
+        If the embedded URLs don't resolve to an image, set it to None.
+
+        This overrides L{twitter.extractImage} so that it always returns
+        the given URL, as if it was successfully extracted.
+        """
+        def cb(entry):
+            self.assertIdentical(None, entry.image_url)
+
+        url = URL()
+        url.url = 'http://t.co/qbJx26r'
+        url.expanded_url = 'http://twitter.com/twitter/status/76360760606986241/photo/1'
+        status = Status()
+        status.entities = Entities()
+        status.entities.urls = [url]
+
+        self.patch(twitter, 'extractImage', lambda url: defer.succeed(None))
+
+        d = twitter.augmentStatusWithImage(status)
+        d.addCallback(cb)
+        return d
+
+
+    def test_augmentStatusWithImageURLEntitiesException(self):
+        """
+        If an exception is raised while trying to resolve entities, 
+
+        This overrides L{twitter.extractImage} so that it always returns
+        the given URL, as if it was successfully extracted.
+        """
+        def cb(entry):
+            self.assertIdentical(None, entry.image_url)
+            self.flushLoggedErrors()
+
+        url = URL()
+        url.url = 'http://t.co/qbJx26r'
+        url.expanded_url = 'http://twitter.com/twitter/status/76360760606986241/photo/1'
+        status = Status()
+        status.entities = Entities()
+        status.entities.urls = [url]
+
+        self.patch(twitter, 'extractImage',
+                            lambda url: defer.fail(Exception()))
+
+        d = twitter.augmentStatusWithImage(status)
+        d.addCallback(cb)
+        return d
+
+
+    def test_augmentStatusWithImageURLEntitiesURL(self):
+        """
+        If there is no expanded URL, try the extracted URL.
+        """
+        def extractImage(url):
+            return defer.succeed(url)
+
+        def cb(entry):
+            self.assertEqual(url.url, entry.image_url)
+
+        url = URL()
+        url.url = 'http://t.co/qbJx26r'
+        status = Status()
+        status.entities = Entities()
+        status.entities.urls = [url]
+
+        self.patch(twitter, 'extractImage', defer.succeed)
+
+        d = twitter.augmentStatusWithImage(status)
+        d.addCallback(cb)
+        return d
+
+
+    def test_augmentStatusWithImageURLEntitiesURLNoSchema(self):
+        """
+        If the extracted URL doesn't have a schema, add it.
+        """
+        def extractImage(url):
+            return defer.succeed(url)
+
+        def cb(entry):
+            self.assertEqual('http://' + url.url, entry.image_url)
+
+        url = URL()
+        url.url = 't.co/qbJx26r'
+        status = Status()
+        status.entities = Entities()
+        status.entities.urls = [url]
+
+        self.patch(twitter, 'extractImage', defer.succeed)
+
+        d = twitter.augmentStatusWithImage(status)
+        d.addCallback(cb)
+        return d
+
+
+    def test_augmentStatusWithImageNoEntities(self):
+        def cb(entry):
+            self.assertIdentical(None, entry.image_url)
+
+        status = Status()
+        status.entities = Entities()
+
+        d = twitter.augmentStatusWithImage(status)
+        d.addCallback(cb)
+        return d
+
+
+
 class TestExtractImage(unittest.TestCase):
 
     def _testExtractImage(self, inurl, outurl):
@@ -36,7 +189,15 @@ class TestExtractImage(unittest.TestCase):
 
 
     def testYFrog(self):
-        return self._testExtractImage("http://yfrog.com/c9vd30j", "http://img441.yfrog.com/img441/3194/vd30.jpg")
+        """
+        Passing a YFrog url yields an image.
+
+        Note that this uses Embedly, as YFrog's OEmbed implementation is
+        broken.
+        """
+        return self._testExtractImage(
+            "http://yfrog.com/c9vd30j",
+            "http://a.yfrog.com/img441/3194/vd30.jpg")
 
 
     def testImgur(self):
