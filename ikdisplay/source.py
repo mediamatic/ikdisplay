@@ -17,6 +17,7 @@ from zope.interface import Attribute, Interface, implements
 
 from twisted.python import log, reflect
 from twisted.web import client
+from twisted.words.xish.domish import escapeToXml
 
 from axiom import attributes, item
 
@@ -508,6 +509,35 @@ class TwitterSource(SourceMixin, item.Item):
                 'subtitle': status.text,
                 'icon': status.user.profile_image_url,
                 }
+
+            urls = []
+            try:
+                urls += status.entities.urls
+            except AttributeError:
+                pass
+            try:
+                urls += status.entities.media
+            except AttributeError:
+                pass
+
+            urls.sort(key=lambda url: url.indices.start, reverse=True)
+
+            notification['html'] = notification['subtitle']
+            for url in urls:
+                if getattr(url, 'display_url'):
+                    head = notification['subtitle'][0:url.indices.start]
+                    tail = notification['subtitle'][url.indices.end:]
+                    text = u''.join([head, url.display_url, tail])
+                    notification['subtitle'] = text
+
+                    headHTML = notification['html'][0:url.indices.start]
+                    tailHTML = notification['html'][url.indices.end:]
+                    linkHRef = escapeToXml(url.url, isattrib=1)
+                    linkText = escapeToXml(url.display_url)
+                    link = u"<a href='%s'>%s</a>" % (linkHRef, linkText)
+                    html = u''.join([headHTML, link, tailHTML])
+                    notification['html'] = html
+
             if hasattr(status, 'image_url'):
                 notification['picture'] = status.image_url
             self._addVia(notification)

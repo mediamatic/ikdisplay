@@ -10,6 +10,8 @@ from twisted.words.xish import domish
 from wokkel.generic import parseXml
 from wokkel import pubsub
 
+from twittytwister.streaming import Entities, Indices, Media, Status, URL, User
+
 from ikdisplay import aggregator, source, xmpp
 
 class TestPubSubSource(source.PubSubSourceMixin):
@@ -419,28 +421,24 @@ class TwitterSourceTest(unittest.TestCase):
     """
 
     def setUp(self):
-
-        class TwitterUser(object):
-            pass
-
-        class TwitterStatus(object):
-            pass
-
         self.feed = aggregator.Feed(handle=u'test', language=u'en')
 
         self.source = source.TwitterSource()
         self.source.feed = self.feed
         self.source.activate()
 
-        user = TwitterUser()
-        user.id = u'2426271'
+        user = User()
+        user.id = 2426271
         user.screen_name = u'ralphm'
         user.profile_image_url = u'http://a2.twimg.com/profile_images/45293402/ralphm-buddy_normal.png'
 
-        self.status = TwitterStatus()
+        self.status = Status()
         self.status.user = user
         self.status.text = u'Test'
 
+        self.source = source.TwitterSource()
+        self.source.feed = self.feed
+        self.source.activate()
 
     def test_interfaceISource(self):
         """
@@ -457,6 +455,38 @@ class TwitterSourceTest(unittest.TestCase):
                           notification['icon'])
         self.assertTrue(notification['meta'].endswith(u' via Twitter'))
 
+
+    def test_formatDisplayURL(self):
+        self.status.text = (u'#Photos on Twitter: taking flight '
+                            'http://t.co/qbJx26r http://t.co/123456')
+
+        self.status.entities = Entities()
+        media = Media()
+        media.url = "http://t.co/qbJx26r"
+        media.display_url = "pic.twitter.com/qbJx26r"
+        media.indices = Indices()
+        media.indices.start = 34
+        media.indices.end = 53
+        self.status.entities.media = [media]
+        url = URL()
+        url.url = "http://t.co/123456"
+        url.display_url = u"pic.twitter.com/12345\u2026"
+        url.indices = Indices()
+        url.indices.start = 54
+        url.indices.end = 73
+        self.status.entities.urls = [url]
+
+        notification = self.source.format(self.status)
+        self.assertEquals(u'#Photos on Twitter: taking flight '
+                            u'pic.twitter.com/qbJx26r '
+                            u'pic.twitter.com/12345\u2026',
+                          notification['subtitle'])
+        self.assertEquals(u'#Photos on Twitter: taking flight '
+                            u"<a href='http://t.co/qbJx26r'>"
+                              u"pic.twitter.com/qbJx26r</a> "
+                            u"<a href='http://t.co/123456'>"
+                              u"pic.twitter.com/12345\u2026</a>",
+                          notification['html'])
 
 
 

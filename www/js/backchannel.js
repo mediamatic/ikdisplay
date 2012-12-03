@@ -58,7 +58,12 @@ backChannel =
     fillClone: function(clone, message)
     {
         $('.list-ikdisplay-backchannel-title', clone).text(message.title);
-        $('.list-ikdisplay-backchannel-status', clone).text(message.text);
+        if (message.html)
+        {
+          $('.list-ikdisplay-backchannel-status', clone).html(message.html);
+        } else {
+          $('.list-ikdisplay-backchannel-status', clone).text(message.text);
+        }
         $('.list-ikdisplay-backchannel-meta', clone).text(message.meta);
 
         if (message.picture)
