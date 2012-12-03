@@ -5,9 +5,56 @@ Tests for L{ikdisplay.twitter}.
 from twisted.internet import defer
 from twisted.trial import unittest
 
+from axiom.store import Store
+
 from twittytwister.streaming import Status, Entities, Media, URL
 
+from ikdisplay.source import TwitterSource
 from ikdisplay import twitter
+
+class FakeMonitor(object):
+    args = None
+    deligate = None
+
+
+
+class TwitterDispatcherTest(unittest.TestCase):
+    """
+    Tests for L{ikdisplay.twitter.TwitterDispatcher}.
+    """
+
+    def setUp(self):
+        self.monitor = FakeMonitor()
+        self.store = Store()
+        self.dispatcher = twitter.TwitterDispatcher(self.store, self.monitor)
+
+
+    def test_setFiltersEmptyTrack(self):
+        """
+        If the list of filter terms is empty, don't set the track argument.
+        """
+        source = TwitterSource(store=self.store)
+        source.enabled = True
+        source.terms = []
+        source.userIDs = ['2426271']
+        self.dispatcher.setFilters()
+
+        self.assertNotIn('track', self.monitor.args)
+
+
+    def test_setFiltersEmptyFollow(self):
+        """
+        If the list of user ids is empty, don't set the follow argument.
+        """
+        source = TwitterSource(store=self.store)
+        source.enabled = True
+        source.terms = ['ikdisplay']
+        source.userIDs = []
+        self.dispatcher.setFilters()
+
+        self.assertNotIn('follow', self.monitor.args)
+
+
 
 class AugmentStatusWithImageTest(unittest.TestCase):
     """

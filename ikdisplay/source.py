@@ -8,6 +8,7 @@ publish-subscribe mechanism that are converted into a common format to be
 aggregated into a feed. A feed is composed of one or more sources.
 """
 
+from itertools import permutations
 import locale
 import re
 import random
@@ -486,64 +487,100 @@ class TwitterSource(SourceMixin, item.Item):
             self.feed.processNotifications([notification])
 
 
-    def format(self, status):
+    def _gatherTexts(self, status):
+        texts = []
+
+        texts.append(status.text)
+
+        try:
+            texts.append(status.in_reply_to_screen_name or '')
+        except AttributeError:
+            pass
+
+        try:
+            texts.append(status.user.screen_name)
+        except AttributeError:
+            pass
+
+        urls = []
+        try:
+            urls += status.entities.urls
+        except AttributeError:
+            pass
+        try:
+            urls += status.entities.media
+        except AttributeError:
+            pass
+
+        for url in urls:
+            try:
+                texts.append(url.expanded_url)
+            except AttributeError:
+                pass
+
+        return texts, urls
+
+
+    def _matchStatus(self, status):
+        texts, urls = self._gatherTexts(status)
+
         if (not self.terms and
             not self.userIDs):
-            match = True
+            return True, urls
+
+        text = ' '.join(texts)
+        for term in self.terms:
+            if term.startswith('"'):
+                regexps = [term.strip('"')]
+            else:
+                words = term.split()
+                regexps = ('.*'.join(permutation)
+                           for permutation in permutations(words))
+            for regexp in regexps:
+                if re.search(regexp, text, re.IGNORECASE):
+                    return True, urls
+
+        if self.userIDs:
+            userID = str(status.user.id)
+            return (userID in self.userIDs), urls
         else:
-            match = False
+            return False, urls
 
-            for term in self.terms:
-                if re.search(term, status.text, re.IGNORECASE):
-                    match = True
 
-            if self.userIDs:
-                userID = str(status.user.id)
-                match = match or (userID in self.userIDs)
+    def format(self, status):
 
-        if match:
-            log.msg("%s: %s" % (status.user.screen_name.encode('utf-8'),
-                                status.text.encode('utf-8')))
-            notification = {
-                'title': status.user.screen_name,
-                'subtitle': status.text,
-                'icon': status.user.profile_image_url,
-                }
+        match, urls = self._matchStatus(status)
 
-            urls = []
-            try:
-                urls += status.entities.urls
-            except AttributeError:
-                pass
-            try:
-                urls += status.entities.media
-            except AttributeError:
-                pass
-
-            urls.sort(key=lambda url: url.indices.start, reverse=True)
-
-            notification['html'] = notification['subtitle']
-            for url in urls:
-                if getattr(url, 'display_url'):
-                    head = notification['subtitle'][0:url.indices.start]
-                    tail = notification['subtitle'][url.indices.end:]
-                    text = u''.join([head, url.display_url, tail])
-                    notification['subtitle'] = text
-
-                    headHTML = notification['html'][0:url.indices.start]
-                    tailHTML = notification['html'][url.indices.end:]
-                    linkHRef = escapeToXml(url.url, isattrib=1)
-                    linkText = escapeToXml(url.display_url)
-                    link = u"<a href='%s'>%s</a>" % (linkHRef, linkText)
-                    html = u''.join([headHTML, link, tailHTML])
-                    notification['html'] = html
-
-            if hasattr(status, 'image_url'):
-                notification['picture'] = status.image_url
-            self._addVia(notification)
-            return notification
-        else:
+        if not match:
             return None
+
+        notification = {
+            'title': status.user.screen_name,
+            'subtitle': status.text,
+            'icon': status.user.profile_image_url,
+            }
+
+        urls.sort(key=lambda url: url.indices.start, reverse=True)
+        notification['html'] = notification['subtitle']
+        for url in urls:
+            if getattr(url, 'display_url'):
+                head = notification['subtitle'][0:url.indices.start]
+                tail = notification['subtitle'][url.indices.end:]
+                text = u''.join([head, url.display_url, tail])
+                notification['subtitle'] = text
+
+                headHTML = notification['html'][0:url.indices.start]
+                tailHTML = notification['html'][url.indices.end:]
+                linkHRef = escapeToXml(url.url, isattrib=1)
+                linkText = escapeToXml(url.display_url)
+                link = u"<a href='%s'>%s</a>" % (linkHRef, linkText)
+                html = u''.join([headHTML, link, tailHTML])
+                notification['html'] = html
+
+        if hasattr(status, 'image_url'):
+            notification['picture'] = status.image_url
+        self._addVia(notification)
+        return notification
 
 
     def renderTitle(self):
@@ -961,7 +998,6 @@ class CommitsSource(ActivityStreamSourceMixin, item.Item):
         try:
             notification = ActivityStreamSourceMixin.format_payload(self, payload)
             msg = unicode(payload.object.message).split('\n')[0]
-            print msg, notification
             notification['subtitle'] += ': %s' % msg
         except Exception, e:
             log.err(e)

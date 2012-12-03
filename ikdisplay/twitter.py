@@ -144,10 +144,12 @@ class TwitterDispatcher(object):
         if terms != self.terms or userIDs != self.userIDs:
             self.terms = terms
             self.userIDs = userIDs
-            self.monitor.args = {
-                'track': ','.join(self.terms),
-                'follow': ','.join(self.userIDs),
-                }
+            self.monitor.args = {}
+            if self.terms:
+                self.monitor.args['track'] = ','.join((term.strip('"')
+                                                       for term in self.terms))
+            if self.userIDs:
+                self.monitor.args['follow'] = ','.join(self.userIDs)
 
 
     def refreshFilters(self):
@@ -160,6 +162,8 @@ class TwitterDispatcher(object):
             for source in self._getEnabledSources():
                 source.onEntry(entry)
 
+        log.msg("Tweet by %s: %s" % (entry.user.screen_name.encode('utf-8'),
+                                     entry.text.encode('utf-8')))
         d = augmentStatusWithImage(entry)
         d.addCallback(deliver)
         d.addErrback(log.err)

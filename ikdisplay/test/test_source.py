@@ -489,6 +489,42 @@ class TwitterSourceTest(unittest.TestCase):
                           notification['html'])
 
 
+    def test_formatMatchPermutation(self):
+        """
+        Space separated terms match statuses in other permutations.
+        """
+        self.status.text = "twisted python rocks"
+        self.source.terms = ['python twisted']
+        notification = self.source.format(self.status)
+        self.assertNotIdentical(None, notification)
+
+
+    def test_formatMatchQuoted(self):
+        """
+        Quoted terms match.
+        """
+        self.status.text = "twisted python rocks"
+        self.source.terms = ['"twisted python"']
+        notification = self.source.format(self.status)
+        self.assertNotIdentical(None, notification)
+
+
+    def test_formatMatchQuotedNoPermutation(self):
+        """
+        Quoted terms do not match in other permutations.
+        """
+        self.status.text = "twisted python rocks"
+        self.source.terms = ['"python twisted"']
+        notification = self.source.format(self.status)
+        self.assertIdentical(None, notification)
+
+
+    def test_formatMatchUserID(self):
+        self.source.terms = []
+        self.source.userIDs = ['2426271']
+        notification = self.source.format(self.status)
+        self.assertNotIdentical(None, notification)
+
 
 class IkCamSourceTest(unittest.TestCase, PubSubSourceTests):
     """
