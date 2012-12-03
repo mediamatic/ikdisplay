@@ -13,8 +13,17 @@ from ikdisplay.source import TwitterSource
 from ikdisplay import twitter
 
 class FakeMonitor(object):
+    """
+    Fake TwitterMonitor that collects connect calls.
+    """
     args = None
-    deligate = None
+    delegate = None
+
+    def __init__(self):
+        self.connects = []
+
+    def connect(self, forceReconnect=False):
+        self.connects.append(forceReconnect)
 
 
 
@@ -27,6 +36,27 @@ class TwitterDispatcherTest(unittest.TestCase):
         self.monitor = FakeMonitor()
         self.store = Store()
         self.dispatcher = twitter.TwitterDispatcher(self.store, self.monitor)
+
+
+    def test_initSetFilters(self):
+        """
+        setFilters gets called from __init__, setting delegate.
+        """
+        source = TwitterSource(store=self.store)
+        source.enabled = True
+        source.terms = ['ikdisplay']
+        source.userIDs = ['2426271']
+        self.dispatcher = twitter.TwitterDispatcher(self.store, self.monitor)
+        self.assertEqual(self.dispatcher.onEntry, self.monitor.delegate)
+        self.assertEqual([], self.monitor.connects)
+
+
+    def test_initSetFiltersNoArgs(self):
+        """
+        When there are no initial arguments, the delegate remains empty.
+        """
+        self.assertIdentical(None, self.monitor.delegate)
+        self.assertEqual([], self.monitor.connects)
 
 
     def test_setFiltersEmptyTrack(self):
@@ -53,6 +83,45 @@ class TwitterDispatcherTest(unittest.TestCase):
         self.dispatcher.setFilters()
 
         self.assertNotIn('follow', self.monitor.args)
+
+
+
+    def test_refreshFiltersDisabled(self):
+        """
+        If a source with terms has been disabled, reconnect.
+        """
+        source = TwitterSource(store=self.store)
+        source.enabled = True
+        source.terms = ['ikdisplay']
+        source.userIDs = []
+        self.dispatcher.refreshFilters()
+
+        self.assertEqual([True], self.monitor.connects)
+        self.assertEqual(self.dispatcher.onEntry, self.monitor.delegate)
+
+        source.enabled = False
+        self.dispatcher.refreshFilters()
+
+        self.assertEqual([True, True], self.monitor.connects)
+        self.assertIdentical(None, self.monitor.delegate)
+
+
+    def test_refreshFiltersUnchangedArgs(self):
+        """
+        If a source has changed, but not the monitor args, don't reconnect.
+        """
+        source = TwitterSource(store=self.store)
+        source.enabled = False
+        source.terms = ['ikdisplay']
+        source.userIDs = []
+        self.dispatcher.refreshFilters()
+
+        self.assertEqual([], self.monitor.connects)
+
+        source.terms = ['ikdisplay', 'xmpp']
+        self.dispatcher.refreshFilters()
+
+        self.assertEqual([], self.monitor.connects)
 
 
 

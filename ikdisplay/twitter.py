@@ -117,9 +117,6 @@ class TwitterDispatcher(object):
     def __init__(self, store, monitor):
         self.store = store
         self.monitor = monitor
-        self.monitor.delegate = self.onEntry
-        self.terms = set()
-        self.userIDs = set()
         self.setFilters()
 
 
@@ -141,20 +138,26 @@ class TwitterDispatcher(object):
 
     def setFilters(self):
         terms, userIDs = self.collectFilters()
-        if terms != self.terms or userIDs != self.userIDs:
-            self.terms = terms
-            self.userIDs = userIDs
-            self.monitor.args = {}
-            if self.terms:
-                self.monitor.args['track'] = ','.join((term.strip('"')
-                                                       for term in self.terms))
-            if self.userIDs:
-                self.monitor.args['follow'] = ','.join(self.userIDs)
+        self.terms = terms
+        self.userIDs = userIDs
+        self.monitor.args = {}
+        if self.terms:
+            self.monitor.args['track'] = ','.join((term.strip('"')
+                                                   for term in self.terms))
+        if self.userIDs:
+            self.monitor.args['follow'] = ','.join(self.userIDs)
+
+        if self.monitor.args:
+            self.monitor.delegate = self.onEntry
+        else:
+            self.monitor.delegate = None
 
 
     def refreshFilters(self):
+        oldArgs = self.monitor.args or {}
         self.setFilters()
-        self.monitor.connect(forceReconnect=True)
+        if oldArgs != self.monitor.args:
+            self.monitor.connect(forceReconnect=True)
 
 
     def onEntry(self, entry):

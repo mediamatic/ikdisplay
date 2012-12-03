@@ -191,7 +191,7 @@ class APIResource(resource.Resource):
             if item.enabled:
                 self.pubsubDispatcher.addObserver(item)
 
-        if item.enabled and hasattr(item, 'terms') and hasattr(item, 'userIDs'):
+        if hasattr(item, 'terms') and hasattr(item, 'userIDs'):
             self.twitterDispatcher.refreshFilters()
 
         return item

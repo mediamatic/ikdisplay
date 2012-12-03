@@ -97,7 +97,7 @@ class APIResourceTest(unittest.TestCase):
 
     def test_api_updateItemTwitterDisabled(self):
         """
-        If the twitter source is disabled, don't refresh.
+        If the twitter source is disabled, refresh.
         """
         twitter = source.TwitterSource(store=self.store,
                                        terms=[u'mediamatic'],
@@ -111,7 +111,7 @@ class APIResourceTest(unittest.TestCase):
         self.resource.api_updateItem(FakeRequest())
 
         self.assertEquals([], self.calls)
-        self.assertEquals(0, self.refreshes)
+        self.assertEquals(1, self.refreshes)
 
 
     def test_api_updateItemTwitterEnabled(self):
