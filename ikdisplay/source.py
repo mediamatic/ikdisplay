@@ -577,7 +577,7 @@ class TwitterSource(SourceMixin, item.Item):
                 html = u''.join([headHTML, link, tailHTML])
                 notification['html'] = html
 
-        if hasattr(status, 'image_url'):
+        if getattr(status, 'image_url', None):
             notification['picture'] = status.image_url
         self._addVia(notification)
         return notification

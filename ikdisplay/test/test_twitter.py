@@ -35,7 +35,8 @@ class TwitterDispatcherTest(unittest.TestCase):
     def setUp(self):
         self.monitor = FakeMonitor()
         self.store = Store()
-        self.dispatcher = twitter.TwitterDispatcher(self.store, self.monitor)
+        self.dispatcher = twitter.TwitterDispatcher(self.store, self.monitor,
+                                                    None)
 
 
     def test_initSetFilters(self):
@@ -46,7 +47,8 @@ class TwitterDispatcherTest(unittest.TestCase):
         source.enabled = True
         source.terms = ['ikdisplay']
         source.userIDs = ['2426271']
-        self.dispatcher = twitter.TwitterDispatcher(self.store, self.monitor)
+        self.dispatcher = twitter.TwitterDispatcher(self.store, self.monitor,
+                                                    None)
         self.assertEqual(self.dispatcher.onEntry, self.monitor.delegate)
         self.assertEqual([], self.monitor.connects)
 
@@ -125,10 +127,15 @@ class TwitterDispatcherTest(unittest.TestCase):
 
 
 
-class AugmentStatusWithImageTest(unittest.TestCase):
+class EmbedderTest(unittest.TestCase):
     """
-    Tests for L{twitter.TwitterMonitor}.
+    Tests for L{twitter.Embedder}.
     """
+
+    def setUp(self):
+        self.config = {}
+        self.embedder = twitter.Embedder(self.config)
+
 
     def test_augmentStatusWithImageMediaEntities(self):
         def cb(entry):
@@ -140,7 +147,7 @@ class AugmentStatusWithImageTest(unittest.TestCase):
         status.entities = Entities()
         status.entities.media = [media]
 
-        d = twitter.augmentStatusWithImage(status)
+        d = self.embedder.augmentStatusWithImage(status)
         d.addCallback(cb)
         return d
 
@@ -157,14 +164,15 @@ class AugmentStatusWithImageTest(unittest.TestCase):
 
         url = URL()
         url.url = 'http://t.co/qbJx26r'
-        url.expanded_url = 'http://twitter.com/twitter/status/76360760606986241/photo/1'
+        url.expanded_url = 'http://twitter.com/twitter/status/' \
+                               '76360760606986241/photo/1'
         status = Status()
         status.entities = Entities()
         status.entities.urls = [url]
 
-        self.patch(twitter, 'extractImage', defer.succeed)
+        self.patch(self.embedder, 'extractImage', defer.succeed)
 
-        d = twitter.augmentStatusWithImage(status)
+        d = self.embedder.augmentStatusWithImage(status)
         d.addCallback(cb)
         return d
 
@@ -181,21 +189,23 @@ class AugmentStatusWithImageTest(unittest.TestCase):
 
         url = URL()
         url.url = 'http://t.co/qbJx26r'
-        url.expanded_url = 'http://twitter.com/twitter/status/76360760606986241/photo/1'
+        url.expanded_url = 'http://twitter.com/twitter/status/' \
+                               '76360760606986241/photo/1'
         status = Status()
         status.entities = Entities()
         status.entities.urls = [url]
 
-        self.patch(twitter, 'extractImage', lambda url: defer.succeed(None))
+        self.patch(self.embedder, 'extractImage',
+                   lambda url: defer.succeed(None))
 
-        d = twitter.augmentStatusWithImage(status)
+        d = self.embedder.augmentStatusWithImage(status)
         d.addCallback(cb)
         return d
 
 
     def test_augmentStatusWithImageURLEntitiesException(self):
         """
-        If an exception is raised while trying to resolve entities, 
+        If an exception is raised while trying to resolve entities, log it.
 
         This overrides L{twitter.extractImage} so that it always returns
         the given URL, as if it was successfully extracted.
@@ -206,15 +216,16 @@ class AugmentStatusWithImageTest(unittest.TestCase):
 
         url = URL()
         url.url = 'http://t.co/qbJx26r'
-        url.expanded_url = 'http://twitter.com/twitter/status/76360760606986241/photo/1'
+        url.expanded_url = 'http://twitter.com/twitter/status/' \
+                               '76360760606986241/photo/1'
         status = Status()
         status.entities = Entities()
         status.entities.urls = [url]
 
-        self.patch(twitter, 'extractImage',
-                            lambda url: defer.fail(Exception()))
+        self.patch(self.embedder, 'extractImage',
+                   lambda url: defer.fail(Exception()))
 
-        d = twitter.augmentStatusWithImage(status)
+        d = self.embedder.augmentStatusWithImage(status)
         d.addCallback(cb)
         return d
 
@@ -235,9 +246,9 @@ class AugmentStatusWithImageTest(unittest.TestCase):
         status.entities = Entities()
         status.entities.urls = [url]
 
-        self.patch(twitter, 'extractImage', defer.succeed)
+        self.patch(self.embedder, 'extractImage', defer.succeed)
 
-        d = twitter.augmentStatusWithImage(status)
+        d = self.embedder.augmentStatusWithImage(status)
         d.addCallback(cb)
         return d
 
@@ -258,9 +269,9 @@ class AugmentStatusWithImageTest(unittest.TestCase):
         status.entities = Entities()
         status.entities.urls = [url]
 
-        self.patch(twitter, 'extractImage', defer.succeed)
+        self.patch(self.embedder, 'extractImage', defer.succeed)
 
-        d = twitter.augmentStatusWithImage(status)
+        d = self.embedder.augmentStatusWithImage(status)
         d.addCallback(cb)
         return d
 
@@ -272,30 +283,35 @@ class AugmentStatusWithImageTest(unittest.TestCase):
         status = Status()
         status.entities = Entities()
 
-        d = twitter.augmentStatusWithImage(status)
+        d = self.embedder.augmentStatusWithImage(status)
         d.addCallback(cb)
         return d
 
 
-
-class TestExtractImage(unittest.TestCase):
-
     def _testExtractImage(self, inurl, outurl):
-        d = twitter.extractImage(inurl)
+        d = self.embedder.extractImage(inurl)
         d.addCallback(lambda result: self.assertEquals(outurl, result))
         return d
 
 
     def testTwitpic(self):
-        return self._testExtractImage("http://twitpic.com/3dhy78", "http://twitpic.com/show/large/3dhy78")
+        return self._testExtractImage(
+            "http://twitpic.com/3dhy78",
+            "http://twitpic.com/show/large/3dhy78")
 
 
     def testMobyPictureFull(self):
-        return self._testExtractImage("http://www.mobypicture.com/user/marjolijn/view/90053", "http://a3.img.mobypicture.com/5bd603ae84e09ac10ce15b98f4dd5e7f_full.jpg")
+        return self._testExtractImage(
+            "http://www.mobypicture.com/user/marjolijn/view/90053",
+            "http://a3.img.mobypicture.com/"
+                "5bd603ae84e09ac10ce15b98f4dd5e7f_full.jpg")
 
 
     def testMobyPictureShort(self):
-        return self._testExtractImage("http://moby.to/1234", "http://a1.img.mobypicture.com/5d84733aa1dd84f9bb0da21e2413acfa_full.jpg")
+        return self._testExtractImage(
+            "http://moby.to/1234",
+            "http://a1.img.mobypicture.com/"
+                "5d84733aa1dd84f9bb0da21e2413acfa_full.jpg")
 
 
     def testFlickr(self):
@@ -304,24 +320,47 @@ class TestExtractImage(unittest.TestCase):
             "http://farm4.staticflickr.com/3123/2341623661_7c99f48bbf_b.jpg")
 
 
-    def testYFrog(self):
-        """
-        Passing a YFrog url yields an image.
-
-        Note that this uses Embedly, as YFrog's OEmbed implementation is
-        broken.
-        """
-        return self._testExtractImage(
-            "http://yfrog.com/c9vd30j",
-            "http://a.yfrog.com/img441/3194/vd30.jpg")
-
-
     def testImgur(self):
-        return self._testExtractImage("http://imgur.com/hPa9B", "http://imgur.com/hPa9B.jpg")
+        return self._testExtractImage(
+            "http://imgur.com/hPa9B",
+            "http://imgur.com/hPa9B.jpg")
 
 
     def testTinypic(self):
-        return self._testExtractImage("http://i56.tinypic.com/zoc3o0.jpg", "http://i56.tinypic.com/zoc3o0.jpg")
+        return self._testExtractImage(
+            "http://i56.tinypic.com/zoc3o0.jpg",
+            "http://i56.tinypic.com/zoc3o0.jpg")
+
+
+    def testInstagram(self):
+        return self._testExtractImage(
+            "http://instagr.am/p/S2aLN-DbxS/",
+            "http://instagr.am/p/S2aLN-DbxS/media?size=l")
+
+
+    def testEmbedly(self):
+        def _oEmbed(url):
+            return defer.succeed(url)
+
+        self.patch(self.embedder, '_oEmbed', _oEmbed)
+        self._testExtractImage(
+                "http://yfrog.com/c9vd30j",
+                "http://api.embed.ly/1/oembed?url=http://yfrog.com/c9vd30j")
+
+
+    def testEmbedlyAPIKey(self):
+        """
+        If the config passed the embedder has an embed.ly API key, use it.
+        """
+        def _oEmbed(url):
+            return defer.succeed(url)
+
+        self.config['embedly-key'] = 'mykey'
+        self.patch(self.embedder, '_oEmbed', _oEmbed)
+        self._testExtractImage(
+                "http://yfrog.com/c9vd30j",
+                "http://api.embed.ly/1/oembed?key=mykey&"
+                                             "url=http://yfrog.com/c9vd30j")
 
 
     def testUnsupported(self):

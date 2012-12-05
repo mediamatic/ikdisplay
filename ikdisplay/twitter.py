@@ -114,9 +114,10 @@ class TwitterDispatcher(object):
     recalculate the filter and reconnect.
     """
 
-    def __init__(self, store, monitor):
+    def __init__(self, store, monitor, embedder):
         self.store = store
         self.monitor = monitor
+        self.embedder = embedder
         self.setFilters()
 
 
@@ -167,111 +168,138 @@ class TwitterDispatcher(object):
 
         log.msg("Tweet by %s: %s" % (entry.user.screen_name.encode('utf-8'),
                                      entry.text.encode('utf-8')))
-        d = augmentStatusWithImage(entry)
+        d = self.embedder.augmentStatusWithImage(entry)
         d.addCallback(deliver)
         d.addErrback(log.err)
 
 
 
-def augmentStatusWithImage(entry):
+class Embedder(object):
     """
-    Discover images linked from the entry and include the image's URL.
+    Media embedder.
 
-    This tries to detect images from URLs embedded in the entry and includes
-    the first one in the entry's C{image_url} attribute.
-
-    @type entry: L{streaming.Status}
-
-    @rtype: L{defer.Deferred}
+    Given a URL, try to find an associated URL for enclosed media for
+    embedding in Twitter statuses.
     """
 
-    def getFirstImage(r):
-        for success, result in r:
-            if success and result:
-                entry.image_url = result
-                break
-        return entry
-
-    entry.image_url = None
-
-    if hasattr(entry.entities, 'media') and entry.entities.media:
-        entry.image_url = entry.entities.media[0].media_url
-        return defer.succeed(entry)
-    elif hasattr(entry.entities, 'urls') and entry.entities.urls:
-        ds = []
-        for urlentry in entry.entities.urls:
-            url = getattr(urlentry, 'expanded_url', urlentry.url)
-            if url:
-                if (not url.startswith('http://') and
-                    not url.startswith('https://')):
-                    url = 'http://' + url
-                ds.append(extractImage(url.encode('utf-8')))
-        d = defer.DeferredList(ds)
-        d.addCallback(getFirstImage)
-        return d
-    else:
-        # No urls in tweet.
-        return defer.succeed(entry)
-
-
-
-def extractImage(url):
-    extracters = [
+    extractors = [
         # native
-        ('http://twitpic\.com/.+', _extractTwitpic),
-        ('http://moby\.to/.+', _extractMobyPicture),
-        ('http://www\.mobypicture\.com/user/[^/]+/view/.+', _extractMobyPicture),
-        ('http://www\.flickr\.com/photos/.+', _extractFlickr),
+        ('http://twitpic\.com/.+', 'twitpic'),
+        ('http://moby\.to/.+', 'mobyPicture'),
+        ('http://www\.mobypicture\.com/user/[^/]+/view/.+', 'mobyPicture'),
+        ('http://www\.flickr\.com/photos/.+', 'flickr'),
+        ('http://instagr.am/p/.+', 'instagram'),
 
         # literal links
-        ('http://i\d+\.tinypic\.com/.+\.(png|jpg)$', _extractLiteral),
+        ('http://i\d+\.tinypic\.com/.+\.(png|jpg)$', 'literal'),
 
         # using embed.ly oembed proxy:
-        ('http://tweetphoto\.com/.+', _extractEmbedly),
-        ('http://twitgoo\.com/.+', _extractEmbedly),
-        ('http://pikchur\.com/.+', _extractEmbedly),
-        ('http://imgur\.com/.+', _extractEmbedly),
-        ('http://post\.ly/.+', _extractEmbedly),
-        ('http://img\.ly/.+', _extractEmbedly),
-        ('http://plixi\.com/.+', _extractEmbedly),
-        ('http://instagr.am/p/.+', _extractEmbedly),
-        ('https?://path.com/p/.+', _extractEmbedly),
-        ('http://yfrog\.com/.+', _extractEmbedly),
+        ('http://tweetphoto\.com/.+', 'embedly'),
+        ('http://twitgoo\.com/.+', 'embedly'),
+        ('http://pikchur\.com/.+', 'embedly'),
+        ('http://imgur\.com/.+', 'embedly'),
+        ('http://post\.ly/.+', 'embedly'),
+        ('http://img\.ly/.+', 'embedly'),
+        ('http://plixi\.com/.+', 'embedly'),
+        ('https?://path.com/p/.+', 'embedly'),
+        ('http://yfrog\.com/.+', 'embedly'),
         ]
-    for regex, cb in extracters:
-        if re.match(regex, url):
-            return cb(url)
-    return defer.succeed(None)
+
+    def __init__(self, config):
+        self.config = config
 
 
-def _extractLiteral(url):
-    return defer.succeed(url)
+    def augmentStatusWithImage(self, entry):
+        """
+        Discover images linked from the entry and include the image's URL.
+
+        This tries to detect images from URLs embedded in the entry and
+        includes the first one in the entry's C{image_url} attribute.
+
+        @type entry: L{streaming.Status}
+
+        @rtype: L{defer.Deferred}
+        """
+
+        def getFirstImage(r):
+            for success, result in r:
+                if success and result:
+                    entry.image_url = result
+                    break
+            return entry
+
+        entry.image_url = None
+
+        if hasattr(entry.entities, 'media') and entry.entities.media:
+            entry.image_url = entry.entities.media[0].media_url
+            return defer.succeed(entry)
+        elif hasattr(entry.entities, 'urls') and entry.entities.urls:
+            ds = []
+            for urlentry in entry.entities.urls:
+                url = getattr(urlentry, 'expanded_url', urlentry.url)
+                if url:
+                    if (not url.startswith('http://') and
+                        not url.startswith('https://')):
+                        url = 'http://' + url
+                    ds.append(self.extractImage(url.encode('utf-8')))
+            d = defer.DeferredList(ds)
+            d.addCallback(getFirstImage)
+            return d
+        else:
+            # No urls in tweet.
+            return defer.succeed(entry)
 
 
-def _extractTwitpic(url):
-    id = url.split("/")[-1]
-    return defer.succeed("http://twitpic.com/show/large/" + id)
+    def extractImage(self, url):
+        """
+        Match the URL to extractor regexes and retrieve image URL.
+        """
+        for regex, name in self.extractors:
+            method = getattr(self, '_extract_' + name)
+            if re.match(regex, url):
+                return method(url)
+        return defer.succeed(None)
 
 
-def _extractMobyPicture(url):
-    return _oEmbed("http://api.mobypicture.com/oEmbed?url=%s&format=json" % url)
+    def _extract_literal(self, url):
+        return defer.succeed(url)
 
 
-def _extractFlickr(url):
-    return _oEmbed("http://www.flickr.com/services/oembed/?url=%s&format=json" % url)
+    def _extract_twitpic(self, url):
+        id = url.split("/")[-1]
+        return defer.succeed("http://twitpic.com/show/large/" + id)
 
 
-def _extractEmbedly(url):
-    return _oEmbed("http://api.embed.ly/1/oembed?url="+url)
+    def _extract_mobyPicture(self, url):
+        return self._oEmbed(
+            "http://api.mobypicture.com/oEmbed?url=%s&format=json" % url)
 
 
-def _oEmbed(url):
-    d = client.getPage(url)
-    def parse(page):
-        result = json.loads(page)
-        if result.get('type') != 'photo':
-            # Ignore non-photos
-            return None
-        return result.get('url')
-    d.addCallback(parse)
-    return d
+    def _extract_flickr(self, url):
+        return self._oEmbed(
+            "http://www.flickr.com/services/oembed/?url=%s&format=json" % url)
+
+
+    def _extract_embedly(self, url):
+        embedlyURL = 'http://api.embed.ly/1/oembed?'
+        if self.config.get('embedly-key'):
+            embedlyURL += 'key=%s&' % self.config['embedly-key']
+        embedlyURL += 'url=%s' % url
+        return self._oEmbed(embedlyURL)
+
+
+    def _extract_instagram(self, url):
+        return defer.succeed(url + "media?size=l")
+
+
+    def _oEmbed(self, url):
+        d = client.getPage(url)
+        def parse(page):
+            result = json.loads(page)
+            if result.get('type') != 'photo':
+                # Ignore non-photos
+                return None
+            return result.get('url')
+        d.addCallback(parse)
+        d.addErrback(log.err, "Failed to retrieve %r" % url)
+        return d

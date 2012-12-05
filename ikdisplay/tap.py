@@ -51,6 +51,9 @@ class Options(usage.Options):
             ('twitter-oauth-token-secret', None, None,
                 'Twitter OAuth token secret'),
 
+            ('embedly-key', None, None,
+                'embed.ly API key'),
+
             ('web-port', None, 'tcp:8080',
                 'Web service port'),
 
@@ -133,7 +136,8 @@ def makeService(config):
     tm.setName('twitter')
     tm.setServiceParent(store)
 
-    td = twitter.TwitterDispatcher(store, tm)
+    embedder = twitter.Embedder(config)
+    td = twitter.TwitterDispatcher(store, tm, embedder)
 
     #
     # The Aggregator
@@ -160,6 +164,7 @@ def makeService(config):
     #
     namespace = {
         'aggregator': agg,
+        'embedder': embedder,
         'pubsub': pc,
         'root': rootResource,
         'store': store,
