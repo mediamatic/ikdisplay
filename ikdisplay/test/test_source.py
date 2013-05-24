@@ -433,6 +433,7 @@ class TwitterSourceTest(unittest.TestCase):
         user.profile_image_url = u'http://a2.twimg.com/profile_images/45293402/ralphm-buddy_normal.png'
 
         self.status = Status()
+        self.status.id = 1
         self.status.user = user
         self.status.text = u'Test'
 
@@ -524,6 +525,20 @@ class TwitterSourceTest(unittest.TestCase):
         self.source.userIDs = ['2426271']
         notification = self.source.format(self.status)
         self.assertNotIdentical(None, notification)
+
+
+    def test_formatURI(self):
+        """
+        The Tweet URI is constructed from the screenname and tweet id.
+        """
+        self.status.id = 210462857140252672
+        self.status.user.screen_name = u'twitterapi'
+
+        notification = self.source.format(self.status)
+        self.assertEqual(
+                'https://twitter.com/twitterapi/statuses/210462857140252672',
+                notification['uri'])
+
 
 
 class IkCamSourceTest(unittest.TestCase, PubSubSourceTests):

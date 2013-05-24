@@ -64,7 +64,17 @@ backChannel =
         } else {
           $('.list-ikdisplay-backchannel-status', clone).text(message.text);
         }
-        $('.list-ikdisplay-backchannel-meta', clone).text(message.meta);
+
+        $meta_node = $('.list-ikdisplay-backchannel-meta', clone);
+        if (message.uri)
+        {
+          $meta_text_node = $('a', $meta_node);
+          $meta_text_node.attr('href', message.uri);
+        } else {
+          $('a', $meta_node).remove();
+          $meta_text_node = $meta_node;
+        }
+        $meta_text_node.text(message.meta);
 
         if (message.picture)
         {

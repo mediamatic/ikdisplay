@@ -558,6 +558,9 @@ class TwitterSource(SourceMixin, item.Item):
             'title': status.user.screen_name,
             'subtitle': status.text,
             'icon': status.user.profile_image_url,
+            'uri': ('https://twitter.com/%s/statuses/%d' %
+                    (status.user.screen_name.encode('utf-8'),
+                     status.id)),
             }
 
         urls.sort(key=lambda url: url.indices.start, reverse=True)
