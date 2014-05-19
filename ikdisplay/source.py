@@ -490,8 +490,6 @@ class TwitterSource(SourceMixin, item.Item):
     def _gatherTexts(self, status):
         texts = []
 
-        texts.append(status.text)
-
         try:
             texts.append(status.in_reply_to_screen_name or '')
         except AttributeError:
@@ -502,13 +500,21 @@ class TwitterSource(SourceMixin, item.Item):
         except AttributeError:
             pass
 
+        if getattr(status, 'retweeted_status', None):
+            texts.append(status.retweeted_status.user.screen_name)
+            textStatus = status.retweeted_status
+        else:
+            textStatus = status
+
+        texts.append(textStatus.text)
+
         urls = []
         try:
-            urls += status.entities.urls
+            urls += textStatus.entities.urls
         except AttributeError:
             pass
         try:
-            urls += status.entities.media
+            urls += textStatus.entities.media
         except AttributeError:
             pass
 
@@ -541,8 +547,11 @@ class TwitterSource(SourceMixin, item.Item):
                     return True, urls
 
         if self.userIDs:
-            userID = str(status.user.id)
-            return (userID in self.userIDs), urls
+            userIDs = set()
+            userIDs.add(str(status.user.id))
+            if getattr(status, 'retweeted_status', None):
+                userIDs.add(str(status.retweeted_status.user.id))
+            return (not userIDs.isdisjoint(self.userIDs)), urls
         else:
             return False, urls
 
@@ -556,12 +565,18 @@ class TwitterSource(SourceMixin, item.Item):
 
         notification = {
             'title': status.user.screen_name,
-            'subtitle': status.text,
             'icon': status.user.profile_image_url,
             'uri': ('https://twitter.com/%s/statuses/%d' %
                     (status.user.screen_name.encode('utf-8'),
                      status.id)),
             }
+
+        # Twitter Entities on retweets have incorrect indices. Use the
+        # retweeted status for rendering the plain text and html.
+        if getattr(status, 'retweeted_status', None):
+            notification['subtitle'] = status.retweeted_status.text
+        else:
+            notification['subtitle'] = status.text
 
         urls.sort(key=lambda url: url.indices.start, reverse=True)
         notification['html'] = notification['subtitle']
@@ -580,8 +595,18 @@ class TwitterSource(SourceMixin, item.Item):
                 html = u''.join([headHTML, link, tailHTML])
                 notification['html'] = html
 
+        # Prefix the retweeted status explicitly.
+        if getattr(status, 'retweeted_status', None):
+            notification['subtitle'] = 'RT @%s: %s' % (
+                status.user.screen_name,
+                notification['subtitle'])
+            notification['html'] = 'RT @%s: %s' % (
+                status.user.screen_name,
+                notification['html'])
+
         if getattr(status, 'image_url', None):
             notification['picture'] = status.image_url
+
         self._addVia(notification)
         return notification
 

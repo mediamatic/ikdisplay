@@ -490,6 +490,58 @@ class TwitterSourceTest(unittest.TestCase):
                           notification['html'])
 
 
+    def test_formatDisplayURLRetweeted(self):
+        """
+        Retweets with links are rendered properly.
+        """
+        status = self.status.retweeted_status = Status()
+        status.text = (u'Today, many XMPP servers switch to mandatory '
+                         u'encryption. Happy Open Discussion Day! '
+                         u'http://t.co/MNH87vwe4T http://t.co/DbKFDlV9M8')
+
+        user = User()
+        user.id = 2426271
+        user.screen_name = u'ralphm'
+        status.user = user
+
+        status.entities = Entities()
+
+        urls = []
+
+        url = URL()
+        url.url = "http://t.co/MNH87vwe4T"
+        url.display_url = "opendiscussionday.org"
+        url.indices = Indices()
+        url.indices.start = 84
+        url.indices.end = 106
+        urls.append(url)
+
+        url = URL()
+        url.url = "http://t.co/DbKFDlV9M8"
+        url.display_url = u"stpeter.im/journal/1496.h\u2026"
+        url.indices = Indices()
+        url.indices.start = 107
+        url.indices.end = 129
+        urls.append(url)
+
+        status.entities.urls = urls
+
+        notification = self.source.format(self.status)
+        self.assertEquals(u'RT @ralphm: '
+                            u'Today, many XMPP servers switch to mandatory '
+                            u'encryption. Happy Open Discussion Day! '
+                            u'opendiscussionday.org '
+                            u'stpeter.im/journal/1496.h\u2026',
+                          notification['subtitle'])
+        self.assertEquals(u'RT @ralphm: '
+                            u'Today, many XMPP servers switch to mandatory '
+                            u'encryption. Happy Open Discussion Day! '
+                            u"<a href='http://t.co/MNH87vwe4T'>"
+                              u'opendiscussionday.org</a> '
+                            u"<a href='http://t.co/DbKFDlV9M8'>"
+                              u'stpeter.im/journal/1496.h\u2026</a>',
+                          notification['html'])
+
     def test_formatMatchPermutation(self):
         """
         Space separated terms match statuses in other permutations.
@@ -523,6 +575,21 @@ class TwitterSourceTest(unittest.TestCase):
     def test_formatMatchUserID(self):
         self.source.terms = []
         self.source.userIDs = ['2426271']
+        notification = self.source.format(self.status)
+        self.assertNotIdentical(None, notification)
+
+
+    def test_formatMatchUserIDRetweeted(self):
+        """
+        User IDs of retweeted users match.
+        """
+        self.source.terms = []
+        self.source.userIDs = ['123']
+        self.status.retweeted_status = Status()
+        self.status.retweeted_status.text = 'test'
+        self.status.retweeted_status.user = User()
+        self.status.retweeted_status.user.id = 123
+        self.status.retweeted_status.user.screen_name = 'test'
         notification = self.source.format(self.status)
         self.assertNotIdentical(None, notification)
 
