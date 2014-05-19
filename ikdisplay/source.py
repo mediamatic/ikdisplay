@@ -598,10 +598,10 @@ class TwitterSource(SourceMixin, item.Item):
         # Prefix the retweeted status explicitly.
         if getattr(status, 'retweeted_status', None):
             notification['subtitle'] = 'RT @%s: %s' % (
-                status.user.screen_name,
+                status.retweeted_status.user.screen_name,
                 notification['subtitle'])
             notification['html'] = 'RT @%s: %s' % (
-                status.user.screen_name,
+                status.retweeted_status.user.screen_name,
                 notification['html'])
 
         if getattr(status, 'image_url', None):

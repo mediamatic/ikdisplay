@@ -494,6 +494,8 @@ class TwitterSourceTest(unittest.TestCase):
         """
         Retweets with links are rendered properly.
         """
+        self.status.user.id = 1
+        self.status.user.screen_name = u'test'
         status = self.status.retweeted_status = Status()
         status.text = (u'Today, many XMPP servers switch to mandatory '
                          u'encryption. Happy Open Discussion Day! '
