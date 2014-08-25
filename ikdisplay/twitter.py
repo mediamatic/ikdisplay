@@ -189,6 +189,7 @@ class Embedder(object):
         ('http://www\.mobypicture\.com/user/[^/]+/view/.+', 'mobyPicture'),
         ('http://www\.flickr\.com/photos/.+', 'flickr'),
         ('http://instagr.am/p/.+', 'instagram'),
+        ('http://instagram.com/p/.+', 'instagram'),
 
         # literal links
         ('http://i\d+\.tinypic\.com/.+\.(png|jpg)$', 'literal'),
