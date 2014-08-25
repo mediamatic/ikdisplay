@@ -166,8 +166,11 @@ class TwitterDispatcher(object):
             for source in self._getEnabledSources():
                 source.onEntry(entry)
 
-        log.msg("Tweet by %s: %s" % (entry.user.screen_name.encode('utf-8'),
-                                     entry.text.encode('utf-8')))
+        log.msg(format="Tweet by %(screen_name)s (%(lang)s): %(text)s",
+                screen_name=entry.user.screen_name.encode('utf-8'),
+                text=entry.text.encode('utf-8'),
+                lang=getattr(entry, "lang", None))
+
         d = self.embedder.augmentStatusWithImage(entry)
         d.addCallback(deliver)
         d.addErrback(log.err)
