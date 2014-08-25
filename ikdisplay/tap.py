@@ -5,13 +5,14 @@ ikDisplay Aggregator service.
 from oauth.oauth import OAuthConsumer, OAuthToken
 
 from twisted.application import service, strports
+from twisted.cred import portal, checkers
+from twisted.conch import manhole, manhole_ssh
+from twisted.conch.insults import insults
 from twisted.python import usage
 from twisted.web import resource, server, static
 from twisted.words.protocols.jabber import jid
 
 from axiom.store import Store
-
-from anymeta import manhole
 
 from twittytwister.twitter import TwitterFeed, TwitterMonitor
 
@@ -100,6 +101,29 @@ class Options(usage.Options):
 
 
 
+def getManholeFactory(namespace, **passwords):
+    """
+    Return a protocol factory to set up an ssh manhole.
+
+    @param namespace: The initial global variables accessible in the
+        interactive shell.
+    @param passwords: This allows for providing username and password
+        combinations as keyword arguments.
+    """
+
+    def chainedProtocolFactory():
+        return insults.ServerProtocol(manhole.ColoredManhole,
+                                      namespace)
+
+    checker = checkers.InMemoryUsernamePasswordDatabaseDontUse(**passwords)
+    sshRealm = manhole_ssh.TerminalRealm()
+    sshRealm.chainedProtocolFactory = chainedProtocolFactory
+
+    sshPortal = portal.Portal(sshRealm, [checker])
+    return manhole_ssh.ConchFactory(sshPortal)
+
+
+
 def makeService(config):
     s = service.MultiService()
 
@@ -128,9 +152,9 @@ def makeService(config):
     # The Twitter
     #
     twitterFeed = TwitterFeed(user=config.get('twitter-user'),
-                             passwd=config.get('twitter-password'),
-                             consumer=config.get('twitter-oauth-consumer'),
-                             token=config.get('twitter-oauth-token'))
+                              passwd=config.get('twitter-password'),
+                              consumer=config.get('twitter-oauth-consumer'),
+                              token=config.get('twitter-oauth-token'))
     twitterFeed.protocol = twitter.VerboseTwitterStream
     tm = TwitterMonitor(api=twitterFeed.filter, delegate=None, args=None)
     tm.setName('twitter')
@@ -172,7 +196,7 @@ def makeService(config):
         'web': ws,
         }
 
-    manholeFactory = manhole.getFactory(namespace, admin=pw)
+    manholeFactory = getManholeFactory(namespace, admin=pw)
     manholeService = strports.service(config['manhole-port'], manholeFactory)
     manholeService.setServiceParent(s)
 
