@@ -212,7 +212,7 @@ class EmbedderTest(unittest.TestCase):
         """
         def cb(entry):
             self.assertIdentical(None, entry.image_url)
-            self.flushLoggedErrors()
+            self.assertEqual(1, len(self.flushLoggedErrors()))
 
         url = URL()
         url.url = 'http://t.co/qbJx26r'
@@ -317,7 +317,7 @@ class EmbedderTest(unittest.TestCase):
     def testFlickr(self):
         return self._testExtractImage(
             "http://www.flickr.com/photos/bees/2341623661/",
-            "http://farm4.staticflickr.com/3123/2341623661_7c99f48bbf_b.jpg")
+            "https://farm4.staticflickr.com/3123/2341623661_7c99f48bbf_b.jpg")
 
 
     def testImgur(self):

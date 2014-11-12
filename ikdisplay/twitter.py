@@ -245,10 +245,12 @@ class Embedder(object):
                     if (not url.startswith('http://') and
                         not url.startswith('https://')):
                         url = 'http://' + url
-                    ds.append(self.extractImage(url.encode('utf-8')))
-            d = defer.DeferredList(ds)
-            d.addCallback(getFirstImage)
-            return d
+                    d = self.extractImage(url.encode('utf-8'))
+                    d.addErrback(log.err)
+                    ds.append(d)
+            dl = defer.DeferredList(ds)
+            dl.addCallback(getFirstImage)
+            return dl
         else:
             # No urls in tweet.
             return defer.succeed(entry)
